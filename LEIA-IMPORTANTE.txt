@@ -1,0 +1,7 @@
+Correção aplicada:
+- Todo o app usa agora o pacote com.rodriguesacai.entregador
+- Remove a referência antiga com.rodrigues.entregador que causava erro no R
+
+IMPORTANTE:
+Depois de extrair/substituir, execute o arquivo APLICAR_CORRECAO_WINDOWS.bat dentro da pasta do projeto.
+Ele apaga a pasta antiga app/src/main/java/com/rodrigues/entregador, que pode ter ficado sobrando no seu repositório.
