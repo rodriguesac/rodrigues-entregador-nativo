@@ -2,6 +2,7 @@ package com.rodriguesacai.entregador.service
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.rodriguesacai.entregador.data.DriverRepository
 
 class RideFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
@@ -21,6 +22,6 @@ class RideFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        // Próximo passo: salvar token do entregador no Firebase vinculado ao usuário logado.
+        DriverRepository.saveMessagingToken(this)
     }
 }

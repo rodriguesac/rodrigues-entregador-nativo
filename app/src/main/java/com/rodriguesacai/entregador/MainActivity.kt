@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.net.toUri
+import com.rodriguesacai.entregador.data.DriverRepository
 import com.rodriguesacai.entregador.service.OnlineDriverService
 import com.rodriguesacai.entregador.ui.DriverHomeScreen
 
@@ -23,11 +24,18 @@ class MainActivity : ComponentActivity() {
         askBasicPermissions()
         setContent {
             DriverHomeScreen(
-                onGoOnline = { startOnlineService() },
-                onGoOffline = { stopService(Intent(this, OnlineDriverService::class.java)) },
+                onGoOnline = {
+                    DriverRepository.setOnline(this, true)
+                    startOnlineService()
+                },
+                onGoOffline = {
+                    DriverRepository.setOnline(this, false)
+                    stopService(Intent(this, OnlineDriverService::class.java))
+                },
                 onOpenNavigator = { openNavigator() },
                 onOpenBatterySettings = { openBatterySettings() },
-                onSimulateRide = { openSimulatedRide() }
+                onSimulateRide = { openSimulatedRide() },
+                driverId = DriverRepository.driverId(this)
             )
         }
     }

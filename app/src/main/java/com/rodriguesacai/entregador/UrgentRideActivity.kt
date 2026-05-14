@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.rodriguesacai.entregador.data.DriverRepository
 import com.rodriguesacai.entregador.ui.UrgentRideScreen
 
 class UrgentRideActivity : ComponentActivity() {
@@ -26,8 +27,8 @@ class UrgentRideActivity : ComponentActivity() {
                 distance = distance,
                 pickup = pickup,
                 dropoff = dropoff,
-                onAccept = { finish() },
-                onReject = { finish() }
+                onAccept = { DriverRepository.acceptRide(this, rideId) { finish() } },
+                onReject = { DriverRepository.rejectRide(this, rideId) { finish() } }
             )
         }
     }

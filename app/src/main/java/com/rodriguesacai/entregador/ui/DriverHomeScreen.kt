@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.rodriguesacai.entregador.data.DriverRepository
+import com.rodriguesacai.entregador.data.DriverRide
 
 private enum class AppTab { Inicio, Ganhos, Historico, Conta, Mais }
 private enum class OperationStage { Aguardando, Oferta, Coleta, Entrega }
@@ -32,11 +35,49 @@ fun DriverHomeScreen(
     onGoOffline: () -> Unit,
     onOpenNavigator: () -> Unit,
     onOpenBatterySettings: () -> Unit,
-    onSimulateRide: () -> Unit
+    onSimulateRide: () -> Unit,
+    driverId: String
 ) {
+    val context = LocalContext.current
     var online by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(AppTab.Inicio) }
     var stage by remember { mutableStateOf(OperationStage.Aguardando) }
+    var pendingRide by remember { mutableStateOf<DriverRide?>(null) }
+    var activeRide by remember { mutableStateOf<DriverRide?>(null) }
+    var firebaseError by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(online) {
+        if (!online) {
+            pendingRide = null
+            activeRide = null
+            onDispose { }
+        } else {
+            val pendingListener = DriverRepository.listenPendingRide(
+                context = context,
+                onRide = { ride ->
+                    pendingRide = ride
+                    if (ride != null && activeRide == null) stage = OperationStage.Oferta
+                },
+                onError = { firebaseError = it }
+            )
+            val activeListener = DriverRepository.listenMyActiveRide(
+                context = context,
+                onRide = { ride ->
+                    activeRide = ride
+                    stage = when (ride?.status) {
+                        "accepted", "pickup" -> OperationStage.Coleta
+                        "delivering" -> OperationStage.Entrega
+                        else -> if (pendingRide != null) OperationStage.Oferta else OperationStage.Aguardando
+                    }
+                },
+                onError = { firebaseError = it }
+            )
+            onDispose {
+                pendingListener.remove()
+                activeListener.remove()
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Color(0xFF09060D),
@@ -69,7 +110,10 @@ fun DriverHomeScreen(
                     },
                     onOpenNavigator = onOpenNavigator,
                     onSimulateRide = onSimulateRide,
-                    onStageChange = { stage = it }
+                    onStageChange = { stage = it },
+                    pendingRide = pendingRide,
+                    activeRide = activeRide,
+                    firebaseError = firebaseError
                 )
                 AppTab.Ganhos -> EarningsContent()
                 AppTab.Historico -> HistoryContent(onSimulateRide)
@@ -104,7 +148,10 @@ private fun HomeContent(
     onToggle: () -> Unit,
     onOpenNavigator: () -> Unit,
     onSimulateRide: () -> Unit,
-    onStageChange: (OperationStage) -> Unit
+    onStageChange: (OperationStage) -> Unit,
+    pendingRide: DriverRide?,
+    activeRide: DriverRide?,
+    firebaseError: String?
 ) {
     Column(
         Modifier
@@ -114,16 +161,27 @@ private fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         HeaderBar(online)
+        firebaseError?.let { FirebaseStatusCard("Firebase", it) }
         OperationHero(online, stage, onToggle, onStageChange)
         when (stage) {
             OperationStage.Aguardando -> WaitingRoutePreview(onSimulateRide)
-            OperationStage.Oferta -> IncomingRideCard(onSimulateRide, onStageChange)
-            OperationStage.Coleta -> PickupCard(onOpenNavigator, onStageChange)
-            OperationStage.Entrega -> DeliveryCard(onOpenNavigator, onStageChange)
+            OperationStage.Oferta -> IncomingRideCard(pendingRide, onSimulateRide, onStageChange)
+            OperationStage.Coleta -> PickupCard(activeRide, onOpenNavigator, onStageChange)
+            OperationStage.Entrega -> DeliveryCard(activeRide, onOpenNavigator, onStageChange)
         }
         EarningsStrip()
         QuickActionsCard(onSimulateRide, onOpenNavigator)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun FirebaseStatusCard(title: String, message: String) {
+    Surface(color = Color(0xFF3B1320), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.Black)
+            Text(message, color = Color(0xFFFFCAD5), fontSize = 13.sp)
+        }
     }
 }
 
@@ -230,43 +288,58 @@ private fun WaitingRoutePreview(onSimulateRide: () -> Unit) {
 }
 
 @Composable
-private fun IncomingRideCard(onSimulateRide: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+private fun IncomingRideCard(ride: DriverRide?, onSimulateRide: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    val context = LocalContext.current
     PremiumCard {
+        if (ride == null) {
+            Text("Nenhuma oferta real agora", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Text("O app está ouvindo a coleção rides no Firebase com status pending.", color = Color(0xFFD6CCDF), lineHeight = 20.sp)
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onSimulateRide, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) { Text("Testar alerta visual") }
+            return@PremiumCard
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Aceitar a rota?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                Text("R$ 7,00", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black)
-                Text("3,52 km • 22 min • 2 paradas", color = Color(0xFFD6CCDF), fontSize = 16.sp)
+                Text(ride.value, color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black)
+                Text("${ride.distance} • ${ride.duration}", color = Color(0xFFD6CCDF), fontSize = 16.sp)
             }
             CountdownBadge("60")
         }
         Spacer(Modifier.height(14.dp))
-        MiniRouteBox("Coleta 1", "Panificadora Dico Hiroshima & Padaria")
-        MiniRouteBox("Entrega 1", "Carandá Bosque")
+        MiniRouteBox("Coleta", ride.pickup)
+        MiniRouteBox("Entrega", ride.dropoff)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = { onStageChange(OperationStage.Aguardando) }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(18.dp)) { Text("Rejeitar") }
-            Button(onClick = { onStageChange(OperationStage.Coleta) }, modifier = Modifier.weight(1.6f).height(58.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Aceitar", fontWeight = FontWeight.Black) }
+            OutlinedButton(onClick = { DriverRepository.rejectRide(context, ride.id) { onStageChange(OperationStage.Aguardando) } }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(18.dp)) { Text("Rejeitar") }
+            Button(onClick = { DriverRepository.acceptRide(context, ride.id) { onStageChange(OperationStage.Coleta) } }, modifier = Modifier.weight(1.6f).height(58.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Aceitar", fontWeight = FontWeight.Black) }
         }
-        TextButton(onClick = onSimulateRide, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Abrir tela urgente real") }
     }
 }
 
 @Composable
-private fun PickupCard(onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+private fun PickupCard(ride: DriverRide?, onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    val context = LocalContext.current
     PremiumCard {
-        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Coleta 1", subtitle = "Loja → retirada")
+        val current = ride
+        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Coleta", subtitle = "Loja → retirada")
         Spacer(Modifier.height(14.dp))
-        StopCard(kind = "COLETA", name = "Panificadora Dico Hiroshima & Padaria", address = "Avenida Hiroshima, 812 • Vila Nascente", primary = "Cheguei na coleta", onPrimary = { onStageChange(OperationStage.Entrega) }, onOpenNavigator = onOpenNavigator)
+        StopCard(kind = "COLETA", name = current?.pickup ?: "Rodrigues Açaí e Cia", address = current?.distance ?: "Corrida aceita", primary = "Cheguei na coleta", onPrimary = {
+            if (current != null) DriverRepository.updateRideStatus(context, current.id, "delivering") { onStageChange(OperationStage.Entrega) } else onStageChange(OperationStage.Entrega)
+        }, onOpenNavigator = onOpenNavigator)
     }
 }
 
 @Composable
-private fun DeliveryCard(onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+private fun DeliveryCard(ride: DriverRide?, onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    val context = LocalContext.current
     PremiumCard {
-        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Entrega 1", subtitle = "Rota em andamento")
+        val current = ride
+        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Entrega", subtitle = "Rota em andamento")
         Spacer(Modifier.height(14.dp))
-        StopCard(kind = "ENTREGA", name = "Cliente • endereço liberado", address = "Carandá Bosque • 8 min restantes", primary = "Finalizar entrega", onPrimary = { onStageChange(OperationStage.Aguardando) }, onOpenNavigator = onOpenNavigator)
+        StopCard(kind = "ENTREGA", name = current?.customerName ?: "Cliente", address = current?.dropoff ?: "Endereço liberado", primary = "Finalizar entrega", onPrimary = {
+            if (current != null) DriverRepository.updateRideStatus(context, current.id, "finished") { onStageChange(OperationStage.Aguardando) } else onStageChange(OperationStage.Aguardando)
+        }, onOpenNavigator = onOpenNavigator)
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Rota de devolução") }
     }

@@ -35,3 +35,48 @@ Actions > Build APK Nativo Entregador
 - app/src/main/res/raw/alerta.wav
 - app/src/main/java/com/rodriguesacai/entregador/ui/DriverHomeScreen.kt
 - app/src/main/java/com/rodriguesacai/entregador/ui/UrgentRideScreen.kt
+
+## V1.4 Firebase Real — incluído nesta revisão
+
+Esta revisão deixa de depender somente da simulação visual e passa a usar Firestore como base operacional mínima.
+
+### Coleções usadas
+
+`drivers/{driverId}`
+- `online`: true/false
+- `status`: available/offline
+- `fcmToken`: token para push
+- `updatedAt`: última atualização
+
+`rides/{rideId}`
+- `status`: pending, accepted, delivering ou finished
+- `value`: exemplo `R$ 12,50`
+- `distance`: exemplo `3,2 km`
+- `duration`: exemplo `22 min`
+- `pickup`: endereço/nome da coleta
+- `dropoff`: endereço/nome da entrega
+- `assignedDriverId`: vazio para qualquer entregador ou igual ao driverId do aparelho
+- `driverId`: preenchido quando o entregador aceita
+- `customerName`: nome do cliente
+
+`driverHistory`
+- registra accepted, rejected, delivering e finished.
+
+### Como testar corrida real
+
+No Firebase Console, crie um documento em `rides` com:
+
+```json
+{
+  "status": "pending",
+  "value": "R$ 12,50",
+  "distance": "3,2 km",
+  "duration": "22 min",
+  "pickup": "Rodrigues Açaí e Cia",
+  "dropoff": "Cliente próximo ao Centro",
+  "assignedDriverId": "",
+  "customerName": "Cliente teste"
+}
+```
+
+Com o app online, a oferta aparece na tela inicial. Ao aceitar, o documento muda para `accepted`; ao avançar, muda para `delivering`; ao finalizar, muda para `finished`.
