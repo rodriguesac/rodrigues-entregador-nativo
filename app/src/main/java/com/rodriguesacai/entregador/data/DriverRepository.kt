@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
+import java.security.MessageDigest
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +64,7 @@ object DriverRepository {
     fun login(
         context: Context,
         documentOrPhone: String,
+        password: String = "",
         onSuccess: (DriverProfile) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -77,12 +79,68 @@ object DriverRepository {
         findDriverProfile(searchValues, onFound = { profile ->
             when {
                 profile.blocked -> onError("Entregador bloqueado/reprovado no painel gestor.")
-                !profile.approved -> onError("Entregador encontrado, mas ainda nao aprovado no painel gestor.")
+                !profile.approved -> onError("Cadastro encontrado, mas ainda aguardando aprovacao do gestor.")
+                profile.hasPassword && !profile.passwordMatches(password) -> onError("Senha incorreta. Confira a senha cadastrada para este entregador.")
                 else -> saveSession(context, profile, onSuccess)
             }
         }, onNotFound = {
-            onError("Entregador nao encontrado no Firebase. Conferi entregadores/cpf/telefone conforme o gestor.")
+            onError("Entregador nao encontrado. Cadastre-se ou aprove o cadastro no painel gestor.")
         })
+    }
+
+    fun registerDriver(
+        request: DriverRegistrationRequest,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cpfDigits = request.cpf.onlyDigits()
+        val phoneDigits = request.phone.onlyDigits()
+        when {
+            request.name.trim().length < 3 -> { onError("Informe o nome completo do entregador."); return }
+            cpfDigits.length != 11 -> { onError("CPF precisa ter 11 numeros."); return }
+            phoneDigits.length < 10 -> { onError("Informe um telefone/WhatsApp valido."); return }
+            request.password.length < 6 -> { onError("Crie uma senha com pelo menos 6 caracteres."); return }
+        }
+
+        val now = Timestamp.now()
+        val id = cpfDigits
+        val payload = linkedMapOf<String, Any?>(
+            "id" to id,
+            "uid" to id,
+            "nome" to request.name.trim(),
+            "nomeCompleto" to request.name.trim(),
+            "cpf" to maskCpf(cpfDigits),
+            "cpfLimpo" to cpfDigits,
+            "telefone" to request.phone.trim(),
+            "telefoneLimpo" to phoneDigits,
+            "whatsapp" to request.phone.trim(),
+            "modalidade" to request.vehicle.ifBlank { "Moto" },
+            "placa" to request.plate.trim().uppercase(Locale.ROOT),
+            "statusCadastro" to "PENDENTE",
+            "statusAprovacao" to "PENDENTE",
+            "aprovado" to false,
+            "online" to false,
+            "status" to "Aguardando aprovacao",
+            "senhaHash" to sha256(request.password),
+            "senhaCriadaEm" to now,
+            "origemCadastro" to "android_native",
+            "platform" to "android_native",
+            "appVersion" to "3.2.0-nativo-login-cadastro",
+            "criadoEm" to now,
+            "createdAt" to now,
+            "atualizadoEm" to now,
+            "updatedAt" to now
+        )
+
+        db.collection(REAL_DRIVER_COLLECTION).document(id).set(payload, SetOptions.merge())
+            .addOnSuccessListener {
+                db.collection("solicitacoesEntregadores").document(id).set(
+                    payload + mapOf("tipo" to "CADASTRO_ENTREGADOR", "prioridade" to "NORMAL"),
+                    SetOptions.merge()
+                ).addOnSuccessListener { onSuccess() }
+                    .addOnFailureListener { onError(it.message ?: "Cadastro salvo, mas falhou ao criar solicitacao.") }
+            }
+            .addOnFailureListener { onError(it.message ?: "Falha ao enviar cadastro.") }
     }
 
     private fun buildSearchValues(raw: String, normalized: String): List<String> {
@@ -176,7 +234,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "3.0.2-nativo-real-schema"
+                "appVersion" to "3.2.0-nativo-login-cadastro"
             ),
             SetOptions.merge()
         )
@@ -198,7 +256,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "3.0.2-nativo-real-schema"
+            "appVersion" to "3.2.0-nativo-login-cadastro"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
@@ -560,7 +618,9 @@ object DriverRepository {
             verified = approved,
             approved = approved,
             blocked = blocked,
-            approvalStatus = statusCadastro
+            approvalStatus = statusCadastro,
+            passwordHash = anyString("senhaHash", "senhaAppHash", "passwordHash", "pinHash"),
+            passwordPlain = anyString("senha", "senhaApp", "password", "pin")
         )
     }
 
@@ -577,6 +637,11 @@ object DriverRepository {
     }
 
     fun formatCurrency(value: Double): String = NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(value)
+
+    private fun sha256(value: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
 
     private fun Date.formatHour(): String = SimpleDateFormat("HH:mm", Locale("pt", "BR")).format(this)
 
@@ -603,7 +668,32 @@ data class DriverProfile(
     val verified: Boolean = true,
     val approved: Boolean = true,
     val blocked: Boolean = false,
-    val approvalStatus: String = ""
+    val approvalStatus: String = "",
+    val passwordHash: String = "",
+    val passwordPlain: String = ""
+) {
+    val hasPassword: Boolean get() = passwordHash.isNotBlank() || passwordPlain.isNotBlank()
+
+    fun passwordMatches(password: String): Boolean {
+        if (!hasPassword) return true
+        if (password.isBlank()) return false
+        if (passwordPlain.isNotBlank() && password == passwordPlain) return true
+        if (passwordHash.isNotBlank()) {
+            val bytes = MessageDigest.getInstance("SHA-256").digest(password.toByteArray())
+            val hash = bytes.joinToString("") { "%02x".format(it) }
+            return hash.equals(passwordHash, ignoreCase = true)
+        }
+        return false
+    }
+}
+
+data class DriverRegistrationRequest(
+    val name: String,
+    val cpf: String,
+    val phone: String,
+    val password: String,
+    val vehicle: String = "Moto",
+    val plate: String = ""
 )
 
 data class DriverStats(

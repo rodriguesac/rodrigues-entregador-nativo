@@ -53,18 +53,23 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rodriguesacai.entregador.data.DriverHistory
 import com.rodriguesacai.entregador.data.DriverProfile
+import com.rodriguesacai.entregador.data.DriverRegistrationRequest
 import com.rodriguesacai.entregador.data.DriverRepository
 import com.rodriguesacai.entregador.data.DriverRide
 import com.rodriguesacai.entregador.data.DriverStats
 import com.rodriguesacai.entregador.service.AppAlertPlayer
 
 private enum class AppTab { Inicio, Ganhos, Historico, Conta, Mais }
+
+private val AppFont = androidx.compose.ui.text.font.FontFamily.SansSerif
 
 @Composable
 fun DriverHomeScreen(
@@ -82,6 +87,7 @@ fun DriverHomeScreen(
     var history by remember { mutableStateOf<List<DriverHistory>>(emptyList()) }
     var stats by remember { mutableStateOf(DriverStats()) }
     var error by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf("") }
 
     DisposableEffect(profile?.id, online) {
         val pendingListener = if (profile != null && online) {
@@ -113,14 +119,33 @@ fun DriverHomeScreen(
     if (profile == null) {
         LoginScreen(
             error = error,
-            onLogin = { value, setLoading ->
+            notice = notice,
+            onLogin = { value, password, setLoading ->
                 error = ""
+                notice = ""
                 setLoading(true)
                 DriverRepository.login(
                     context = context,
                     documentOrPhone = value,
+                    password = password,
                     onSuccess = {
                         profile = it
+                        setLoading(false)
+                    },
+                    onError = {
+                        error = it
+                        setLoading(false)
+                    }
+                )
+            },
+            onRegister = { request, setLoading ->
+                error = ""
+                notice = ""
+                setLoading(true)
+                DriverRepository.registerDriver(
+                    request = request,
+                    onSuccess = {
+                        notice = "Cadastro enviado. Aguarde aprovacao no painel gestor para entrar."
                         setLoading(false)
                     },
                     onError = {
@@ -197,51 +222,180 @@ fun DriverHomeScreen(
 }
 
 @Composable
-private fun LoginScreen(error: String, onLogin: (String, (Boolean) -> Unit) -> Unit) {
+private fun LoginScreen(
+    error: String,
+    notice: String,
+    onLogin: (String, String, (Boolean) -> Unit) -> Unit,
+    onRegister: (DriverRegistrationRequest, (Boolean) -> Unit) -> Unit
+) {
+    var mode by remember { mutableStateOf("login") }
     var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var cpf by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var vehicle by remember { mutableStateOf("Moto") }
+    var plate by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF1A0825), Color(0xFF08050D))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF13051D), Color(0xFF09090B))))
             .padding(22.dp),
         contentAlignment = Alignment.Center
     ) {
         PremiumCard {
-            Text("Rodrigues Entregador", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("App 100% nativo • acesso por entregador cadastrado", color = Color(0xFFD7CCDF), fontSize = 14.sp)
-            Spacer(Modifier.height(18.dp))
-            OutlinedTextField(
-                value = login,
-                onValueChange = { login = it },
-                label = { Text("CPF ou telefone cadastrado") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                enabled = !loading,
-                onClick = { onLogin(login) { loading = it } },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))
-            ) {
-                if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White) else Text("Entrar", fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(58.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(Color(0xFF4B0082), Color(0xFF82C91E))))
+                        .border(1.dp, Color.White.copy(alpha = .16f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("R", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Rodrigues Entregas", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("PainelUP Entregador • 100% nativo", color = Color(0xFF82C91E), fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                }
             }
+
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ModeButton("Entrar", mode == "login", Modifier.weight(1f)) { mode = "login" }
+                ModeButton("Cadastrar", mode == "cadastro", Modifier.weight(1f)) { mode = "cadastro" }
+            }
+
+            Spacer(Modifier.height(18.dp))
+            if (mode == "login") {
+                Text("Acesso do entregador", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Entre com CPF ou telefone. Senha será exigida quando existir no cadastro.", color = Color(0xFFD7CCDF), fontSize = 13.sp, fontFamily = AppFont)
+                Spacer(Modifier.height(14.dp))
+                AppField(
+                    value = login,
+                    onValueChange = { login = it },
+                    label = "CPF ou telefone",
+                    keyboardType = KeyboardType.Number
+                )
+                Spacer(Modifier.height(10.dp))
+                AppField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = "Senha, se cadastrada",
+                    keyboardType = KeyboardType.Password,
+                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailing = if (showPassword) "ocultar" else "ver",
+                    onTrailing = { showPassword = !showPassword }
+                )
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    enabled = !loading,
+                    onClick = { onLogin(login, password) { loading = it } },
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B0082), contentColor = Color(0xFF82C91E))
+                ) {
+                    if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color(0xFF82C91E))
+                    else Text("Entrar", fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
+            } else {
+                Text("Cadastro de entregador", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("O cadastro nasce pendente e precisa ser aprovado no painel gestor antes de receber pedidos.", color = Color(0xFFD7CCDF), fontSize = 13.sp, fontFamily = AppFont)
+                Spacer(Modifier.height(14.dp))
+                AppField(name, { name = it }, "Nome completo")
+                Spacer(Modifier.height(10.dp))
+                AppField(cpf, { cpf = it }, "CPF", KeyboardType.Number)
+                Spacer(Modifier.height(10.dp))
+                AppField(phone, { phone = it }, "Telefone / WhatsApp", KeyboardType.Phone)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    AppField(vehicle, { vehicle = it }, "Modalidade", modifier = Modifier.weight(1f))
+                    AppField(plate, { plate = it }, "Placa", modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                AppField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = "Criar senha",
+                    keyboardType = KeyboardType.Password,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    enabled = !loading,
+                    onClick = {
+                        onRegister(DriverRegistrationRequest(name, cpf, phone, newPassword, vehicle, plate)) { loading = it }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B0082), contentColor = Color(0xFF82C91E))
+                ) {
+                    if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color(0xFF82C91E))
+                    else Text("Enviar cadastro", fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
+            }
+
             if (error.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
-                Text(error, color = Color(0xFFFFB5C4), fontSize = 13.sp)
+                Text(error, color = Color(0xFFFFB5C4), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
             }
-            Spacer(Modifier.height(10.dp))
+            if (notice.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Text(notice, color = Color(0xFF82C91E), fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            }
+            Spacer(Modifier.height(12.dp))
             Text(
-                "Nenhum entregador fake é usado. O nome, telefone e permissão vêm da coleção entregadores no Firebase.",
+                "Fluxo nativo: cadastro no app, aprovação no gestor, sessão salva no aparelho e pedidos reais pelo Firebase.",
                 color = Color(0xFF9D91A8),
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                fontFamily = AppFont
             )
         }
     }
+}
+
+@Composable
+private fun ModeButton(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(46.dp),
+        shape = RoundedCornerShape(999.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) Color(0xFF4B0082) else Color.White.copy(alpha = .08f),
+            contentColor = if (selected) Color(0xFF82C91E) else Color(0xFFD7CCDF)
+        )
+    ) { Text(text, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = AppFont) }
+}
+
+@Composable
+private fun AppField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: String? = null,
+    onTrailing: (() -> Unit)? = null,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, fontFamily = AppFont) },
+        singleLine = true,
+        modifier = modifier,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        visualTransformation = visualTransformation,
+        trailingIcon = if (trailing != null && onTrailing != null) {
+            { TextButton(onClick = onTrailing) { Text(trailing, color = Color(0xFF82C91E), fontSize = 11.sp, fontFamily = AppFont) } }
+        } else null
+    )
 }
 
 @Composable
@@ -254,7 +408,7 @@ private fun RowScope.navItem(item: AppTab, selected: AppTab, label: String, icon
         colors = NavigationBarItemDefaults.colors(
             selectedIconColor = Color.White,
             selectedTextColor = Color.White,
-            indicatorColor = Color(0xFFE90045),
+            indicatorColor = Color(0xFF4B0082),
             unselectedIconColor = Color(0xFF95899E),
             unselectedTextColor = Color(0xFF95899E)
         )
@@ -303,7 +457,7 @@ private fun HeaderCard(profile: DriverProfile, online: Boolean, onToggleOnline: 
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(profile.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (online) "Disponível para pedidos reais" else "Offline", color = if (online) Color(0xFF6AFFB0) else Color(0xFFFFC4D0), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (online) "Disponível para pedidos reais" else "Offline", color = if (online) Color(0xFF82C91E) else Color(0xFFFFC4D0), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
             Switch(checked = online, onCheckedChange = onToggleOnline)
         }
@@ -318,7 +472,7 @@ private fun Avatar(name: String) {
         Modifier
             .size(54.dp)
             .clip(CircleShape)
-            .background(Brush.linearGradient(listOf(Color(0xFFE90045), Color(0xFF7B2CFF))))
+            .background(Brush.linearGradient(listOf(Color(0xFF4B0082), Color(0xFF82C91E))))
             .border(2.dp, Color.White.copy(alpha = 0.20f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -334,7 +488,7 @@ private fun StatusPill(text: String, online: Boolean) {
             .background(if (online) Color(0xFF083C25) else Color(0xFF30151E))
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
-        Text(text, color = if (online) Color(0xFF6AFFB0) else Color(0xFFFFB5C4), fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(text, color = if (online) Color(0xFF82C91E) else Color(0xFFFFB5C4), fontSize = 12.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -382,21 +536,21 @@ private fun IncomingRideCard(ride: DriverRide, onAccept: (DriverRide) -> Unit, o
     PremiumCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Nova corrida", color = Color(0xFF6AFFB0), fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Text("Nova corrida", color = Color(0xFF82C91E), fontSize = 14.sp, fontWeight = FontWeight.Black)
                 Text(ride.value, color = Color.White, fontSize = 46.sp, fontWeight = FontWeight.Black)
                 Text("${ride.distance} • ${ride.duration} • ${ride.stops} paradas", color = Color(0xFFD7CCDF), fontSize = 15.sp)
             }
             CountdownBadge("60")
         }
         Spacer(Modifier.height(12.dp))
-        StopLine("COLETA", ride.pickup, Color(0xFF078244))
-        StopLine("ENTREGA", ride.dropoff, Color(0xFFE90045))
+        StopLine("COLETA", ride.pickup, Color(0xFF82C91E))
+        StopLine("ENTREGA", ride.dropoff, Color(0xFF4B0082))
         Spacer(Modifier.height(12.dp))
         NativeRoutePreview("Previa da rota", "${ride.distance} • ${ride.duration} • ${ride.stops} paradas")
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = { onReject(ride) }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(18.dp)) { Text("Rejeitar") }
-            Button(onClick = { onAccept(ride) }, modifier = Modifier.weight(1.5f).height(58.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Aceitar", fontWeight = FontWeight.Black) }
+            Button(onClick = { onAccept(ride) }, modifier = Modifier.weight(1.5f).height(58.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF82C91E))) { Text("Aceitar", fontWeight = FontWeight.Black) }
         }
     }
 }
@@ -411,8 +565,8 @@ private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, d
         Spacer(Modifier.height(12.dp))
         NativeRoutePreview(if (isAccepted || isPickup) "Indo para coleta" else "Indo para entrega", "${ride.distance} • ${ride.duration}")
         Spacer(Modifier.height(12.dp))
-        StopLine("COLETA", ride.pickup, Color(0xFF078244))
-        StopLine("ENTREGA", ride.dropoff, Color(0xFFE90045))
+        StopLine("COLETA", ride.pickup, Color(0xFF82C91E))
+        StopLine("ENTREGA", ride.dropoff, Color(0xFF4B0082))
         Spacer(Modifier.height(14.dp))
         Button(
             onClick = { onOpenNavigator(ride.pickup, if (ride.status == "delivering") ride.dropoff else ride.pickup) },
@@ -422,9 +576,9 @@ private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, d
         ) { Text("Iniciar navegação", fontWeight = FontWeight.Black) }
         Spacer(Modifier.height(10.dp))
         when (ride.status) {
-            "accepted" -> Button(onClick = { onUpdateRide(ride, "pickup") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))) { Text("Cheguei na coleta", fontWeight = FontWeight.Black) }
-            "pickup" -> Button(onClick = { onUpdateRide(ride, "delivering") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Pedido coletado", fontWeight = FontWeight.Black) }
-            "delivering" -> Button(onClick = { onUpdateRide(ride, "finished") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Finalizar entrega", fontWeight = FontWeight.Black) }
+            "accepted" -> Button(onClick = { onUpdateRide(ride, "pickup") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B0082))) { Text("Cheguei na coleta", fontWeight = FontWeight.Black) }
+            "pickup" -> Button(onClick = { onUpdateRide(ride, "delivering") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF82C91E))) { Text("Pedido coletado", fontWeight = FontWeight.Black) }
+            "delivering" -> Button(onClick = { onUpdateRide(ride, "finished") }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF82C91E))) { Text("Finalizar entrega", fontWeight = FontWeight.Black) }
         }
     }
 }
@@ -437,7 +591,7 @@ private fun EarningsContent(stats: DriverStats, history: List<DriverHistory>) {
             Text("Resumo vindo do histórico real", color = Color(0xFFD7CCDF), fontSize = 14.sp)
             Spacer(Modifier.height(18.dp))
             Text(DriverRepository.formatCurrency(stats.totalToday), color = Color.White, fontSize = 46.sp, fontWeight = FontWeight.Black)
-            Text("${stats.finishedCount} entregas finalizadas", color = Color(0xFF6AFFB0), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("${stats.finishedCount} entregas finalizadas", color = Color(0xFF82C91E), fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         HistoryContent(history, embedded = true)
     }
@@ -472,7 +626,7 @@ private fun HistoryRow(item: DriverHistory) {
             Text(item.action.statusLabel(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
             Text("#${item.rideId.takeLast(6).uppercase()} • ${item.createdLabel}", color = Color(0xFFBFAFCB), fontSize = 12.sp)
         }
-        Text(item.value.ifBlank { "—" }, color = Color(0xFF6AFFB0), fontWeight = FontWeight.Black)
+        Text(item.value.ifBlank { "—" }, color = Color(0xFF82C91E), fontWeight = FontWeight.Black)
     }
 }
 
@@ -485,7 +639,7 @@ private fun AccountContent(profile: DriverProfile, online: Boolean, onLogout: ()
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(profile.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text(if (profile.verified) "Verificado profissional" else "Cadastro pendente", color = Color(0xFF6AFFB0), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(if (profile.verified) "Verificado profissional" else "Cadastro pendente", color = Color(0xFF82C91E), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -508,7 +662,7 @@ private fun MoreContent(onOpenBatterySettings: () -> Unit) {
             Text("Configurações operacionais do app nativo", color = Color(0xFFD7CCDF), fontSize = 14.sp)
             Spacer(Modifier.height(14.dp))
             TextButton(onClick = onOpenBatterySettings, modifier = Modifier.fillMaxWidth()) { Text("Abrir ajustes de bateria/permissões") }
-            Text("Versao 3.1.0 nativo • som real • alerta urgente • sem WebView", color = Color(0xFF9D91A8), fontSize = 12.sp)
+            Text("Versao 3.2.0 nativo • visual PainelUP • login/cadastro", color = Color(0xFF9D91A8), fontSize = 12.sp)
         }
     }
 }
@@ -553,9 +707,9 @@ private fun NativeRoutePreview(title: String, subtitle: String) {
                 val x = size.width * i / 5f
                 drawLine(grid, Offset(x, 0f), Offset(x - 45f, size.height), strokeWidth = 2f)
             }
-            drawLine(Color(0xFFE90045), Offset(size.width * .16f, size.height * .72f), Offset(size.width * .82f, size.height * .30f), strokeWidth = 9f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 12f), 0f))
-            drawCircle(Color(0xFF078244), 14f, Offset(size.width * .16f, size.height * .72f))
-            drawCircle(Color(0xFFE90045), 14f, Offset(size.width * .82f, size.height * .30f))
+            drawLine(Color(0xFF4B0082), Offset(size.width * .16f, size.height * .72f), Offset(size.width * .82f, size.height * .30f), strokeWidth = 9f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 12f), 0f))
+            drawCircle(Color(0xFF82C91E), 14f, Offset(size.width * .16f, size.height * .72f))
+            drawCircle(Color(0xFF4B0082), 14f, Offset(size.width * .82f, size.height * .30f))
         }
         Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
             Text(title, color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
