@@ -13,8 +13,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 36
-        versionCode = 51
-        versionName = "5.1.0-painelup-map-real"
+        versionCode = 52
+        versionName = "5.2.0-rc-produto-nativo"
     }
 
     buildFeatures { compose = true }

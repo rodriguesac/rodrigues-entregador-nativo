@@ -38,6 +38,9 @@ class MainActivity : ComponentActivity() {
                     onGoOnline = { requestLocationAndStartOnline() },
                     onGoOffline = { stopService(Intent(this, OnlineDriverService::class.java)) },
                     onOpenNavigator = { pickup, dropoff -> openNavigator(pickup, dropoff) },
+                    onOpenNotificationSettings = { openNotificationSettings() },
+                    onOpenLocationSettings = { openAppSettings() },
+                    onOpenFullScreenSettings = { openFullScreenSettings() },
                     onOpenBatterySettings = { openBatterySettings() }
                 )
             }
@@ -86,7 +89,36 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun openNotificationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= 26) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            }
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.fromParts("package", packageName, null) }
+        }
+        runCatching { startActivity(intent) }.onFailure { openAppSettings() }
+    }
+
+    private fun openFullScreenSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= 34) {
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.fromParts("package", packageName, null) }
+        }
+        runCatching { startActivity(intent) }.onFailure { openAppSettings() }
+    }
+
     private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        runCatching { startActivity(intent) }.onFailure { openAppSettings() }
+    }
+
+    private fun openAppSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", packageName, null)
         }

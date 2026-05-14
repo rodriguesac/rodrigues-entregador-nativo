@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rodriguesacai.entregador.AppSettings
+import com.rodriguesacai.entregador.PermissionStatusReader
 import com.rodriguesacai.entregador.RodriguesFonts
 import com.rodriguesacai.entregador.data.DriverHistory
 import com.rodriguesacai.entregador.data.DriverProfile
@@ -94,6 +95,9 @@ fun DriverHomeScreen(
     onGoOnline: () -> Unit,
     onGoOffline: () -> Unit,
     onOpenNavigator: (pickup: String, dropoff: String) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
+    onOpenFullScreenSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit
 ) {
     val context = LocalContext.current
@@ -250,7 +254,12 @@ fun DriverHomeScreen(
                         }
                     }
                 )
-                AppTab.Mais -> MoreContent(onOpenBatterySettings)
+                AppTab.Mais -> MoreContent(
+                    onOpenNotificationSettings = onOpenNotificationSettings,
+                    onOpenLocationSettings = onOpenLocationSettings,
+                    onOpenFullScreenSettings = onOpenFullScreenSettings,
+                    onOpenBatterySettings = onOpenBatterySettings
+                )
             }
         }
     }
@@ -620,6 +629,8 @@ private fun IncomingRideCard(
             dropoffLat = ride.dropoffLat,
             dropoffLng = ride.dropoffLng
         )
+        Spacer(Modifier.height(12.dp))
+        RideFinancialPanel(ride, compact = true)
         Spacer(Modifier.height(14.dp))
         Text("Motivo da recusa (opcional)", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
@@ -674,6 +685,8 @@ private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, d
         Spacer(Modifier.height(12.dp))
         StopLine("COLETA", ride.pickup, Lime)
         StopLine("ENTREGA", ride.dropoff, Purple2)
+        Spacer(Modifier.height(12.dp))
+        RideFinancialPanel(ride, compact = false)
         Spacer(Modifier.height(14.dp))
         Button(
             onClick = { onOpenNavigator(ride.pickup, if (ride.status == "delivering") ride.dropoff else ride.pickup) },
@@ -689,6 +702,47 @@ private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, d
         }
     }
 }
+
+
+@Composable
+private fun RideFinancialPanel(ride: DriverRide, compact: Boolean) {
+    val receivedByDriver = ride.receivedBy.uppercase().contains("ENTREGADOR") || ride.receivedBy.uppercase().contains("MOTOBOY") || ride.receivedBy.uppercase().contains("DRIVER")
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF0B0D12))
+            .border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(20.dp))
+            .padding(14.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Financeiro da corrida", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Valor do app = repasse frota/piloto", color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+                StatusPill(ride.paymentMethod.ifBlank { "Pagamento" }.take(12), true)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MiniStat("Seu repasse", ride.value, Modifier.weight(1f))
+                if (!compact) MiniStat("Pedido", moneyOrDash(ride.clientTotalNumber), Modifier.weight(1f))
+            }
+            if (receivedByDriver || ride.amountToCollectNumber > 0.0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MiniStat("Receber", moneyOrDash(ride.amountToCollectNumber), Modifier.weight(1f))
+                    MiniStat("Repassar loja", moneyOrDash(ride.storeReturnNumber), Modifier.weight(1f))
+                }
+                if (ride.machineFeeNumber > 0.0) {
+                    Text("Taxa maquininha: ${moneyOrDash(ride.machineFeeNumber)}", color = Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                }
+            } else {
+                Text("Cliente pago pela loja/app. Nada a repassar agora.", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            }
+        }
+    }
+}
+
+private fun moneyOrDash(value: Double): String = if (value > 0.0) DriverRepository.formatCurrency(value) else "—"
 
 @Composable
 private fun EarningsContent(profile: DriverProfile, stats: DriverStats, history: List<DriverHistory>) {
@@ -876,9 +930,15 @@ private fun AccountContent(profile: DriverProfile, online: Boolean, onProfileCha
 }
 
 @Composable
-private fun MoreContent(onOpenBatterySettings: () -> Unit) {
+private fun MoreContent(
+    onOpenNotificationSettings: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
+    onOpenFullScreenSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit
+) {
     val context = LocalContext.current
     var navPreference by remember { mutableStateOf(AppSettings.getNavigationApp(context)) }
+    var permissionStatus by remember { mutableStateOf(PermissionStatusReader.read(context)) }
     var devMode by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -898,14 +958,19 @@ private fun MoreContent(onOpenBatterySettings: () -> Unit) {
         }
 
         GlassCard(padding = 18) {
-            SectionTitle("Notificações urgentes", "Som, vibração e tela cheia para nova corrida.")
+            SectionTitle("Preparar para corridas", "Configure uma vez. Depois o alerta urgente abre automaticamente.")
             Spacer(Modifier.height(12.dp))
+            PermissionRow("Notificações", permissionStatus.notifications) { onOpenNotificationSettings() }
+            PermissionRow("Localização", permissionStatus.location) { onOpenLocationSettings() }
+            PermissionRow("Tela urgente", permissionStatus.fullScreenIntent) { onOpenFullScreenSettings() }
+            PermissionRow("Bateria liberada", permissionStatus.batteryUnrestricted) { onOpenBatterySettings() }
+            Spacer(Modifier.height(10.dp))
             Button(
-                onClick = onOpenBatterySettings,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
+                onClick = { permissionStatus = PermissionStatusReader.read(context) },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Purple, contentColor = Color.White)
-            ) { Text("Abrir permissões do app", fontWeight = FontWeight.Black) }
+                colors = ButtonDefaults.buttonColors(containerColor = if (permissionStatus.ready) Lime else Purple, contentColor = if (permissionStatus.ready) Color(0xFF10200A) else Color.White)
+            ) { Text(if (permissionStatus.ready) "Tudo pronto" else "Atualizar checklist", fontWeight = FontWeight.Black) }
         }
 
         GlassCard(padding = 18) {
@@ -931,7 +996,25 @@ private fun MoreContent(onOpenBatterySettings: () -> Unit) {
 
         GlassCard(padding = 18) {
             Text("Rodrigues Entregador", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("Versão 5.1.0 • mapa real nativo", color = Muted2, fontSize = 12.sp)
+            Text("Versão 5.2.0 • RC produto nativo", color = Muted2, fontSize = 12.sp)
+        }
+    }
+}
+
+
+@Composable
+private fun PermissionRow(label: String, ok: Boolean, onFix: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        StatusPill(if (ok) "OK" else "AJUSTAR", ok)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(if (ok) "Configurado" else "Toque para liberar", color = if (ok) Lime else Warning, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+        }
+        if (!ok) {
+            OutlinedButton(onClick = onFix, shape = RoundedCornerShape(16.dp)) {
+                Text("Abrir", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

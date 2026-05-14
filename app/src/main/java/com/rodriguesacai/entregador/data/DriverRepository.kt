@@ -134,7 +134,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "5.1.0-painelup-map-real",
+            "appVersion" to "5.2.0-rc-produto-nativo",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -177,7 +177,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.1.0-painelup-map-real"
+                "appVersion" to "5.2.0-rc-produto-nativo"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -217,7 +217,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.1.0-painelup-map-real"
+                "appVersion" to "5.2.0-rc-produto-nativo"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -256,7 +256,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "5.1.0-painelup-map-real",
+                "appVersion" to "5.2.0-rc-produto-nativo",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -358,7 +358,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "5.1.0-painelup-map-real"
+                "appVersion" to "5.2.0-rc-produto-nativo"
             ),
             SetOptions.merge()
         )
@@ -380,7 +380,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "5.1.0-painelup-map-real"
+            "appVersion" to "5.2.0-rc-produto-nativo"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
@@ -535,6 +535,8 @@ object DriverRepository {
                 "driverId" to profile.id,
                 "entregadorNome" to profile.name,
                 "driverName" to profile.name,
+                "repasseEntregadorConfirmado" to (ride?.valueNumber ?: 0.0),
+                "valorRepasseMotoboy" to (ride?.valueNumber ?: 0.0),
                 "aceitaEm" to Timestamp.now(),
                 "acceptedAt" to Timestamp.now(),
                 "atualizadoEm" to Timestamp.now(),
@@ -661,6 +663,9 @@ object DriverRepository {
                     fields["concluidaEm"] = Timestamp.now()
                     fields["finishedAt"] = Timestamp.now()
                     fields["entregueEm"] = Timestamp.now()
+                    fields["repasseEntregadorConfirmado"] = ride?.valueNumber ?: 0.0
+                    fields["valorRepasseMotoboy"] = ride?.valueNumber ?: 0.0
+                    fields["financeiroConferidoPeloApp"] = true
                 }
             }
             doc.reference.set(fields, SetOptions.merge())
@@ -717,6 +722,8 @@ object DriverRepository {
                 "titulo" to action,
                 "valorRota" to valueNumber,
                 "valueNumber" to valueNumber,
+                "repasseEntregador" to valueNumber,
+                "valorRepasseMotoboy" to valueNumber,
                 "criadoEm" to Timestamp.now(),
                 "createdAt" to Timestamp.now(),
                 "origem" to "android_native"
@@ -753,15 +760,49 @@ object DriverRepository {
     }
 
     private fun valueNumberFromDoc(doc: DocumentSnapshot): Double {
-        return doc.anyDouble(
-            "valueNumber",
-            "valorRota",
-            "valorEntrega",
+        return doc.driverPayoutValue()
+    }
+
+    private fun DocumentSnapshot.driverPayoutValue(): Double {
+        return anyDouble(
+            "repasseFrota",
+            "repassePiloto",
+            "valorRepasseFrota",
+            "valorRepassePiloto",
+            "financeiroEntrega.repasseFrota",
+            "financeiroEntrega.repassePiloto",
+            "valores.repasseFrota",
+            "valores.repassePiloto",
+            "logistica.repasseFrota",
+            "logistica.repassePiloto",
+            "calculo.valorTotalMotoboy",
+            "valorTotalMotoboy",
+            "valorMotoboy",
             "valorEntregador",
             "valorRepasseMotoboy",
             "valorCorrida",
-            "taxaEntrega"
-        ) ?: doc.anyString("value", "valor", "valorFormatado").toMoneyDouble() ?: 0.0
+            "valorRota"
+        ) ?: anyString("repasse", "valorRepasse", "valorMotoboyFormatado").toMoneyDouble() ?: 0.0
+    }
+
+    private fun DocumentSnapshot.clientTotalValue(): Double {
+        return anyDouble(
+            "valorTotalPedido",
+            "totalPedido",
+            "total",
+            "valorTotalCliente",
+            "pedidoTotal",
+            "valorCobrarCliente"
+        ) ?: anyString("totalFormatado", "valorTotal", "valorCobrar").toMoneyDouble() ?: 0.0
+    }
+
+    private fun DocumentSnapshot.machineFeeValue(): Double {
+        return anyDouble(
+            "taxaMaquininha",
+            "valorTaxaMaquininha",
+            "maquininhaTaxaValor",
+            "financeiroEntrega.taxaMaquininha"
+        ) ?: 0.0
     }
 
     fun formatCurrency(value: Double): String = NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(value)
@@ -869,7 +910,13 @@ data class DriverRide(
     val pickupLat: Double? = null,
     val pickupLng: Double? = null,
     val dropoffLat: Double? = null,
-    val dropoffLng: Double? = null
+    val dropoffLng: Double? = null,
+    val clientTotalNumber: Double = 0.0,
+    val amountToCollectNumber: Double = 0.0,
+    val storeReturnNumber: Double = 0.0,
+    val machineFeeNumber: Double = 0.0,
+    val paymentMethod: String = "",
+    val receivedBy: String = ""
 ) {
     fun matchesDriver(driverId: String): Boolean {
         val ids = listOf(assignedDriverId, targetDriverId).filter { it.isNotBlank() }
@@ -905,15 +952,13 @@ private fun normalizeUiStatus(raw: String): String {
 
 private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
     val rawStatus = anyString("status", "statusEntregador", "statusMotoboy", "statusOfertaEntregador").ifBlank { "pending" }
-    val number = anyDouble(
-        "valueNumber",
-        "valorRota",
-        "valorCorrida",
-        "valorEntregador",
-        "valorRepasseMotoboy",
-        "valorEntrega",
-        "taxaEntrega"
-    ) ?: anyString("value", "valor", "valorFormatado").toMoneyDouble() ?: 0.0
+    val number = driverPayoutValue()
+    val clientTotal = clientTotalValue()
+    val machineFee = machineFeeValue()
+    val paymentMethod = anyString("formaPagamento", "pagamento", "paymentMethod", "metodoPagamento").ifBlank { "Não informado" }
+    val receivedBy = anyString("recebidoPor", "quemRecebe", "recebedor", "paymentReceiver").ifBlank { "Loja/App" }
+    val amountToCollect = anyDouble("valorReceberCliente", "valorCobrarCliente", "trocoValorCobrar", "cobrarDoCliente") ?: clientTotal
+    val storeReturn = if (receivedBy.upperOrTrim() in setOf("ENTREGADOR", "MOTOBOY", "DRIVER")) (amountToCollect - machineFee - number).coerceAtLeast(0.0) else 0.0
     val assigned = anyString("entregadorId", "entregadorUid", "motoboyId", "uidEntregador", "driverId", "assignedDriverId")
     val target = anyString("entregadorAtualOferta", "motoboyAtualOferta", "targetDriverId")
     val rejected = anyStringList("rejeitados", "rejeitadoPor", "rejeitadosIds", "entregadoresRejeitaram", "rejectedDriverIds")
@@ -951,7 +996,13 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
         pickupLat = pickupLat,
         pickupLng = pickupLng,
         dropoffLat = dropoffLat,
-        dropoffLng = dropoffLng
+        dropoffLng = dropoffLng,
+        clientTotalNumber = clientTotal,
+        amountToCollectNumber = amountToCollect,
+        storeReturnNumber = storeReturn,
+        machineFeeNumber = machineFee,
+        paymentMethod = paymentMethod,
+        receivedBy = receivedBy
     )
 }
 
@@ -975,9 +1026,22 @@ private fun DocumentSnapshot.matchesDriverId(driverId: String): Boolean {
     return ids.any { it == driverId }
 }
 
+
+private fun DocumentSnapshot.getDeep(path: String): Any? {
+    if (!path.contains('.')) return get(path)
+    var current: Any? = data
+    for (part in path.split('.')) {
+        current = when (current) {
+            is Map<*, *> -> current[part]
+            else -> return null
+        }
+    }
+    return current
+}
+
 private fun DocumentSnapshot.anyString(vararg keys: String): String {
     for (key in keys) {
-        val value = get(key)
+        val value = getDeep(key)
         if (value != null) return value.toString().trim()
     }
     return ""
@@ -985,7 +1049,7 @@ private fun DocumentSnapshot.anyString(vararg keys: String): String {
 
 private fun DocumentSnapshot.anyDouble(vararg keys: String): Double? {
     for (key in keys) {
-        val value = get(key)
+        val value = getDeep(key)
         when (value) {
             is Number -> return value.toDouble()
             is String -> value.toMoneyDouble()?.let { return it }
@@ -996,7 +1060,7 @@ private fun DocumentSnapshot.anyDouble(vararg keys: String): Double? {
 
 private fun DocumentSnapshot.anyCoordinate(vararg keys: String): Double? {
     for (key in keys) {
-        val value = get(key)
+        val value = getDeep(key)
         when (value) {
             is Number -> return value.toDouble()
             is String -> value.replace(',', '.').trim().toDoubleOrNull()?.let { return it }
@@ -1020,7 +1084,7 @@ private fun DocumentSnapshot.nestedCoordinate(mapKey: String, vararg keys: Strin
 
 private fun DocumentSnapshot.anyBoolean(vararg keys: String): Boolean? {
     for (key in keys) {
-        val value = get(key)
+        val value = getDeep(key)
         when (value) {
             is Boolean -> return value
             is String -> {

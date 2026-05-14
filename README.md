@@ -1,44 +1,76 @@
-# Rodrigues Entregador — V5.1 Recriado Nativo
+# Rodrigues Entregador — V5.2 Produto Nativo
 
-Versão 100% nativa em Kotlin/Jetpack Compose, sem WebView e sem Capacitor.
+Pacote preparado para ser aplicado no repositório `rodrigues-entregador-nativo` e compilado pelo GitHub Actions.
 
-## O que mudou nesta versão
+## Direção do pacote
 
-- Visual recriado com direção PainelUP/Up Entregas.
-- Tema grafite premium, roxo apenas como detalhe, verde para ação/status.
-- Sem texto preto em fundo roxo.
-- Sem frases redundantes como "Você está offline".
-- Tipografia configurada para Montserrat via Google Fonts para Android.
-- Mapa real nativo dentro do app com OpenStreetMap/osmdroid.
-- Rota real usando TomTom REST quando houver endereço/coordenada suficiente.
-- Fallback de mapa com marcadores reais quando a rota não retornar.
-- Botão de navegação externa mantém Google Maps/Waze/padrão do celular.
-- Login/cadastro/pedidos seguem o schema real do gestor.
+- App 100% nativo em Kotlin + Jetpack Compose.
+- Sem WebView, sem Capacitor, sem app híbrido.
+- Visual escuro/profissional inspirado no padrão PainelUP/Up Entregas.
+- Fonte Montserrat via Google Fonts Android.
+- Roxo apenas como acento; sem texto preto sobre fundo roxo.
+- Verde usado para status/ações positivas.
+- Firebase no padrão real do gestor: `entregadores`, `rotas_entrega`, `pedidos`, `historicoEntregador`.
 
-## Aplicar no projeto
+## Fluxo incluído
 
-Copie o conteúdo deste ZIP para:
+- Login por CPF/telefone + senha.
+- Entregador antigo sem senha entra uma vez e cria senha.
+- Cadastro pelo app com status pendente.
+- Sessão salva no aparelho.
+- Status online/offline salvo no Firestore.
+- Token FCM salvo no entregador logado.
+- Oferta real de corrida do Firestore.
+- Som, vibração e tela urgente por Full-Screen Intent.
+- Checklist de permissões: notificações, localização, tela urgente e bateria.
+- Aceitar, recusar com motivo opcional, expirar e finalizar corrida.
+- Mapa real nativo com osmdroid + rota/geocoding TomTom.
+- Botão de navegação externa para Google Maps/Waze/padrão do celular.
+- Histórico e ganhos básicos.
+- Perfil, Pix/banco e solicitação de alteração de dados ao gestor.
+
+## Financeiro
+
+O valor mostrado para o motoboy usa repasse da frota/piloto, não taxa do cliente.
+
+Campos priorizados:
+
+- `repasseFrota`
+- `repassePiloto`
+- `valorRepasseFrota`
+- `valorRepassePiloto`
+- `financeiroEntrega.repasseFrota`
+- `financeiroEntrega.repassePiloto`
+- `valores.repasseFrota`
+- `valores.repassePiloto`
+- `logistica.repasseFrota`
+- `logistica.repassePiloto`
+- `calculo.valorTotalMotoboy`
+- `valorTotalMotoboy`
+- `valorMotoboy`
+- `valorEntregador`
+- `valorRepasseMotoboy`
+- `valorCorrida`
+- `valorRota`
+
+A taxa do cliente (`taxaEntrega`) não deve ser usada como ganho do entregador.
+
+## Como aplicar
+
+Cole o conteúdo deste ZIP dentro de:
 
 ```bat
 C:\RSITE\rodrigues-entregador-nativo
 ```
 
-Depois rode:
+Depois execute:
 
 ```bat
-APLICAR_V5_1_RECRIADO_NATIVO_WINDOWS.bat
+APLICAR_V5_2_PRODUTO_NATIVO_WINDOWS.bat
 ```
 
-## Teste recomendado
+O GitHub Actions vai gerar o APK em Artifacts.
 
-1. Gerar APK no GitHub Actions.
-2. Instalar no celular.
-3. Fazer login com entregador aprovado.
-4. Ficar online.
-5. Criar pedido/rota pelo gestor.
-6. Conferir som, tela urgente, card da corrida e mapa real.
-7. Aceitar, iniciar navegação e finalizar.
+## Observação honesta
 
-## Observação importante
-
-O mapa usa tiles OpenStreetMap e rota/geocoding TomTom com a chave do projeto. Se o documento da corrida já tiver latitude/longitude, o mapa abre mais rápido e mais preciso. Se tiver só endereço, o app tenta geocodificar pelo TomTom.
+Eu não compilei localmente neste ambiente porque não há Gradle/Android SDK local disponível. O pacote foi preparado para o GitHub Actions compilar. Se o Actions apontar erro, corrija em cima desta V5.2, sem voltar para versão híbrida ou versão feia.

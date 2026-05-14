@@ -16,7 +16,7 @@ import com.rodriguesacai.entregador.UrgentRideActivity
 
 object NotificationHelper {
     const val CHANNEL_ONLINE = "driver_online"
-    const val CHANNEL_URGENT = "urgent_ride_v50_final"
+    const val CHANNEL_URGENT = "urgent_ride_v52_produto"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -32,7 +32,7 @@ object NotificationHelper {
 
         val urgent = NotificationChannel(
             CHANNEL_URGENT,
-            "Nova corrida V5",
+            "Nova corrida urgente V5.2",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Alerta urgente de nova rota"
@@ -98,7 +98,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_URGENT)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Nova corrida V5 disponível")
+            .setContentTitle("Nova corrida urgente V5.2 disponível")
             .setContentText("$value • $distance • $duration")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
