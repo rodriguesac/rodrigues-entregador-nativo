@@ -13,12 +13,14 @@ class RideFirebaseMessagingService : FirebaseMessagingService() {
                 context = this,
                 rideId = data["rideId"] ?: "sem-id",
                 value = data["value"] ?: "R$ --",
-                distance = data["distance"] ?: "-- km"
+                distance = data["distance"] ?: "-- km",
+                pickup = data["pickup"] ?: "Rodrigues Açaí e Cia",
+                dropoff = data["dropoff"] ?: "Endereço do cliente liberado após aceite"
             )
         }
     }
 
     override fun onNewToken(token: String) {
-        // Próximo passo: salvar token do entregador no Firebase.
+        // Próximo passo: salvar token do entregador no Firebase vinculado ao usuário logado.
     }
 }

@@ -4,8 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,289 +16,450 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val PurpleDark = Color(0xFF17031F)
-private val PurpleMid = Color(0xFF38105F)
-private val PurpleAccent = Color(0xFF7C3AED)
-private val Green = Color(0xFF22C55E)
-private val Red = Color(0xFFEF4444)
-private val CardDark = Color(0xFF241134)
-private val CardSoft = Color(0xFFF7F2FF)
+private enum class AppTab { Inicio, Ganhos, Historico, Conta, Mais }
+private enum class OperationStage { Aguardando, Oferta, Coleta, Entrega }
 
 @Composable
-fun DriverHomeScreen(onGoOnline: () -> Unit, onGoOffline: () -> Unit) {
+fun DriverHomeScreen(
+    onGoOnline: () -> Unit,
+    onGoOffline: () -> Unit,
+    onOpenNavigator: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
+    onSimulateRide: () -> Unit
+) {
     var online by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(AppTab.Inicio) }
+    var stage by remember { mutableStateOf(OperationStage.Aguardando) }
 
     Scaffold(
-        containerColor = PurpleDark,
-        bottomBar = { BottomMenu() }
+        containerColor = Color(0xFF09060D),
+        bottomBar = {
+            NavigationBar(containerColor = Color(0xFF110D16), tonalElevation = 0.dp) {
+                navItem(AppTab.Inicio, tab, "Início", "⌂") { tab = it }
+                navItem(AppTab.Ganhos, tab, "Ganhos", "$") { tab = it }
+                navItem(AppTab.Historico, tab, "Histórico", "◷") { tab = it }
+                navItem(AppTab.Conta, tab, "Conta", "◉") { tab = it }
+                navItem(AppTab.Mais, tab, "Mais", "≡") { tab = it }
+            }
+        }
     ) { padding ->
         Box(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(PurpleDark, PurpleMid, Color(0xFF4C0D7D))))
                 .padding(padding)
+                .background(Brush.verticalGradient(listOf(Color(0xFF15051F), Color(0xFF07040A))))
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
-            ) {
-                Header(online = online)
-                Spacer(Modifier.height(14.dp))
-                StatusCard(
+            when (tab) {
+                AppTab.Inicio -> HomeContent(
                     online = online,
+                    stage = stage,
                     onToggle = {
                         online = !online
-                        if (online) onGoOnline() else onGoOffline()
-                    }
+                        if (online) onGoOnline() else {
+                            stage = OperationStage.Aguardando
+                            onGoOffline()
+                        }
+                    },
+                    onOpenNavigator = onOpenNavigator,
+                    onSimulateRide = onSimulateRide,
+                    onStageChange = { stage = it }
                 )
-                Spacer(Modifier.height(14.dp))
-                RoutePreviewCard(online = online)
-                Spacer(Modifier.height(14.dp))
-                TodaySummaryCard()
-                Spacer(Modifier.height(14.dp))
-                QuickActionsCard()
+                AppTab.Ganhos -> EarningsContent()
+                AppTab.Historico -> HistoryContent(onSimulateRide)
+                AppTab.Conta -> AccountContent()
+                AppTab.Mais -> MoreContent(onOpenBatterySettings)
             }
         }
     }
 }
 
 @Composable
-private fun Header(online: Boolean) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+private fun RowScope.navItem(item: AppTab, selected: AppTab, label: String, icon: String, onClick: (AppTab) -> Unit) {
+    NavigationBarItem(
+        selected = selected == item,
+        onClick = { onClick(item) },
+        icon = { Text(icon, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+        label = { Text(label, fontSize = 11.sp) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = Color.White,
+            selectedTextColor = Color.White,
+            indicatorColor = Color(0xFFE90045),
+            unselectedIconColor = Color(0xFF95899E),
+            unselectedTextColor = Color(0xFF95899E)
+        )
+    )
+}
+
+@Composable
+private fun HomeContent(
+    online: Boolean,
+    stage: OperationStage,
+    onToggle: () -> Unit,
+    onOpenNavigator: () -> Unit,
+    onSimulateRide: () -> Unit,
+    onStageChange: (OperationStage) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column {
-            Text(
-                text = "Rodrigues Entregador",
-                color = Color.White,
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = if (online) "Operação ativa agora" else "Toque para iniciar a operação",
-                color = Color.White.copy(alpha = 0.68f),
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 13.sp
-            )
+        HeaderBar(online)
+        OperationHero(online, stage, onToggle, onStageChange)
+        when (stage) {
+            OperationStage.Aguardando -> WaitingRoutePreview(onSimulateRide)
+            OperationStage.Oferta -> IncomingRideCard(onSimulateRide, onStageChange)
+            OperationStage.Coleta -> PickupCard(onOpenNavigator, onStageChange)
+            OperationStage.Entrega -> DeliveryCard(onOpenNavigator, onStageChange)
         }
+        EarningsStrip()
+        QuickActionsCard(onSimulateRide, onOpenNavigator)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun HeaderBar(online: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(if (online) Green.copy(alpha = .18f) else Color.White.copy(alpha = .12f))
-                .border(1.dp, if (online) Green.copy(alpha = .55f) else Color.White.copy(alpha = .18f), RoundedCornerShape(50))
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color(0xFFFF1B5E), Color(0xFF4C0D73))))
+                .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Text("R", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Rodrigues Entregador", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(
-                text = if (online) "ONLINE" else "OFFLINE",
-                color = if (online) Green else Color.White.copy(alpha = .78f),
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
+                if (online) "Online • alerta urgente ativo" else "Offline • toque para operar",
+                color = Color(0xFFC7BED2),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+        StatusPill(online)
     }
 }
 
 @Composable
-private fun StatusCard(online: Boolean, onToggle: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardSoft),
-        shape = RoundedCornerShape(28.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(22.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(13.dp)
-                        .clip(CircleShape)
-                        .background(if (online) Green else Red)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = if (online) "Disponível para entregas" else "Você está fora da operação",
-                    color = Color(0xFF1A1024),
-                    fontFamily = FontFamily.SansSerif,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
+private fun StatusPill(online: Boolean) {
+    val bg = if (online) Color(0xFF053B25) else Color(0xFF351318)
+    val fg = if (online) Color(0xFF42F39B) else Color(0xFFFF8B9D)
+    Surface(color = bg, shape = RoundedCornerShape(999.dp)) {
+        Text(if (online) "ONLINE" else "OFF", color = fg, fontWeight = FontWeight.Black, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+    }
+}
+
+@Composable
+private fun OperationHero(online: Boolean, stage: OperationStage, onToggle: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    PremiumCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stageTitle(online, stage), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(6.dp))
+                Text(stageSubtitle(online, stage), color = Color(0xFFD6CCDF), lineHeight = 20.sp)
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = if (online) "Aguardando chamadas próximas. O app mantém o serviço ativo." else "Fique online para receber chamadas urgentes em tela cheia.",
-                color = Color(0xFF3F334A),
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 15.sp,
-                lineHeight = 20.sp
-            )
-            Spacer(Modifier.height(18.dp))
-            Button(
-                onClick = onToggle,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (online) Color(0xFF1F102F) else PurpleAccent,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(
-                    text = if (online) "Ficar offline" else "Ficar online agora",
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
+            Switch(checked = online, onCheckedChange = { onToggle() })
+        }
+        Spacer(Modifier.height(16.dp))
+        StageStepper(stage = stage, enabled = online, onStageChange = onStageChange)
+    }
+}
+
+private fun stageTitle(online: Boolean, stage: OperationStage): String = if (!online) "Você está fora da operação" else when (stage) {
+    OperationStage.Aguardando -> "Disponível para entregas"
+    OperationStage.Oferta -> "Oferta de corrida aberta"
+    OperationStage.Coleta -> "Indo para coleta"
+    OperationStage.Entrega -> "Entrega em andamento"
+}
+
+private fun stageSubtitle(online: Boolean, stage: OperationStage): String = if (!online) "Ative para iniciar serviço em segundo plano, GPS e alertas de nova corrida." else when (stage) {
+    OperationStage.Aguardando -> "Aguardando pedidos próximos. Tela limpa e foco total no próximo chamado."
+    OperationStage.Oferta -> "Valor, distância e tempo em destaque para decidir rápido."
+    OperationStage.Coleta -> "Mostre somente o essencial: loja, chegada e navegação."
+    OperationStage.Entrega -> "Cliente e ação principal ficam sempre a um toque."
+}
+
+@Composable
+private fun StageStepper(stage: OperationStage, enabled: Boolean, onStageChange: (OperationStage) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        StageChip("Livre", stage == OperationStage.Aguardando, enabled, Modifier.weight(1f)) { onStageChange(OperationStage.Aguardando) }
+        StageChip("Oferta", stage == OperationStage.Oferta, enabled, Modifier.weight(1f)) { onStageChange(OperationStage.Oferta) }
+        StageChip("Coleta", stage == OperationStage.Coleta, enabled, Modifier.weight(1f)) { onStageChange(OperationStage.Coleta) }
+        StageChip("Entrega", stage == OperationStage.Entrega, enabled, Modifier.weight(1f)) { onStageChange(OperationStage.Entrega) }
+    }
+}
+
+@Composable
+private fun StageChip(label: String, selected: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val bg = if (selected) Color(0xFFE90045) else Color.White.copy(alpha = 0.07f)
+    val fg = if (enabled) Color.White else Color(0xFF756A7F)
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.height(38.dp), color = bg, shape = RoundedCornerShape(999.dp)) {
+        Box(contentAlignment = Alignment.Center) { Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+    }
+}
+
+@Composable
+private fun WaitingRoutePreview(onSimulateRide: () -> Unit) {
+    PremiumCard {
+        Text("Mapa da operação", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(10.dp))
+        MapMock(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp),
+            title = "Aguardando rota",
+            subtitle = "Preview estático sem cobrir os cards"
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onSimulateRide, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))) {
+            Text("Simular nova corrida", fontWeight = FontWeight.Black)
         }
     }
 }
 
 @Composable
-private fun RoutePreviewCard(online: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardDark.copy(alpha = .96f)),
-        shape = RoundedCornerShape(28.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Área de entrega", color = Color.White, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                Text(if (online) "monitorando" else "pausado", color = if (online) Green else Color.White.copy(.55f), fontFamily = FontFamily.SansSerif, fontSize = 12.sp)
+private fun IncomingRideCard(onSimulateRide: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    PremiumCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Aceitar a rota?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Text("R$ 7,00", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black)
+                Text("3,52 km • 22 min • 2 paradas", color = Color(0xFFD6CCDF), fontSize = 16.sp)
             }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF2A1640), Color(0xFF53327E))))
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val w = size.width
-                    val h = size.height
-                    drawCircle(Color.White.copy(alpha = .06f), radius = w * .28f, center = Offset(w * .78f, h * .18f))
-                    drawCircle(Color.White.copy(alpha = .05f), radius = w * .22f, center = Offset(w * .10f, h * .92f))
-                    val path = Path().apply {
-                        moveTo(w * .12f, h * .70f)
-                        cubicTo(w * .28f, h * .30f, w * .46f, h * .86f, w * .62f, h * .48f)
-                        cubicTo(w * .72f, h * .25f, w * .82f, h * .36f, w * .90f, h * .18f)
-                    }
-                    drawPath(path, color = Green, style = Stroke(width = 10f, cap = StrokeCap.Round))
-                    drawCircle(Color.White, radius = 11f, center = Offset(w * .12f, h * .70f))
-                    drawCircle(PurpleAccent, radius = 15f, center = Offset(w * .90f, h * .18f))
+            CountdownBadge("60")
+        }
+        Spacer(Modifier.height(14.dp))
+        MiniRouteBox("Coleta 1", "Panificadora Dico Hiroshima & Padaria")
+        MiniRouteBox("Entrega 1", "Carandá Bosque")
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { onStageChange(OperationStage.Aguardando) }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(18.dp)) { Text("Rejeitar") }
+            Button(onClick = { onStageChange(OperationStage.Coleta) }, modifier = Modifier.weight(1.6f).height(58.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF078244))) { Text("Aceitar", fontWeight = FontWeight.Black) }
+        }
+        TextButton(onClick = onSimulateRide, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Abrir tela urgente real") }
+    }
+}
+
+@Composable
+private fun PickupCard(onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    PremiumCard {
+        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Coleta 1", subtitle = "Loja → retirada")
+        Spacer(Modifier.height(14.dp))
+        StopCard(kind = "COLETA", name = "Panificadora Dico Hiroshima & Padaria", address = "Avenida Hiroshima, 812 • Vila Nascente", primary = "Cheguei na coleta", onPrimary = { onStageChange(OperationStage.Entrega) }, onOpenNavigator = onOpenNavigator)
+    }
+}
+
+@Composable
+private fun DeliveryCard(onOpenNavigator: () -> Unit, onStageChange: (OperationStage) -> Unit) {
+    PremiumCard {
+        MapMock(modifier = Modifier.fillMaxWidth().height(260.dp), title = "Entrega 1", subtitle = "Rota em andamento")
+        Spacer(Modifier.height(14.dp))
+        StopCard(kind = "ENTREGA", name = "Cliente • endereço liberado", address = "Carandá Bosque • 8 min restantes", primary = "Finalizar entrega", onPrimary = { onStageChange(OperationStage.Aguardando) }, onOpenNavigator = onOpenNavigator)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) { Text("Rota de devolução") }
+    }
+}
+
+@Composable
+private fun StopCard(kind: String, name: String, address: String, primary: String, onPrimary: () -> Unit, onOpenNavigator: () -> Unit) {
+    Surface(color = Color.White.copy(alpha = 0.06f), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(kind, color = Color(0xFFFFD24A), fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text(name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text(address, color = Color(0xFFC7BED2), fontSize = 15.sp)
                 }
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(14.dp)
-                ) {
-                    Text("Preview seguro da rota", color = Color.White, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text("O endereço completo libera na etapa certa", color = Color.White.copy(.75f), fontFamily = FontFamily.SansSerif, fontSize = 12.sp)
-                }
+                OutlinedButton(onClick = onOpenNavigator, shape = RoundedCornerShape(16.dp)) { Text("Mapa") }
             }
+            Button(onClick = onPrimary, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))) { Text(primary, fontWeight = FontWeight.Black) }
         }
     }
 }
 
 @Composable
-private fun TodaySummaryCard() {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SmallMetric("Hoje", "R$ 0,00", Modifier.weight(1f))
-        SmallMetric("Entregas", "0", Modifier.weight(1f))
-        SmallMetric("Tempo", "0h", Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun SmallMetric(label: String, value: String, modifier: Modifier) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = .10f)), shape = RoundedCornerShape(22.dp), modifier = modifier) {
-        Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, color = Color.White.copy(.67f), fontFamily = FontFamily.SansSerif, fontSize = 12.sp)
-            Spacer(Modifier.height(4.dp))
-            Text(value, color = Color.White, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
-    }
-}
-
-@Composable
-private fun QuickActionsCard() {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = .10f)), shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Ações rápidas", color = Color.White, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                ActionChip("Histórico", Modifier.weight(1f))
-                ActionChip("Ganhos", Modifier.weight(1f))
-                ActionChip("Ajustes", Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionChip(text: String, modifier: Modifier) {
+private fun MapMock(modifier: Modifier, title: String, subtitle: String) {
     Box(
         modifier = modifier
-            .height(42.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = .12f)),
-        contentAlignment = Alignment.Center
+            .clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF272238), Color(0xFF152229), Color(0xFF3A114D))))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(28.dp))
     ) {
-        Text(text, color = Color.White, fontFamily = FontFamily.SansSerif, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val lineColor = Color.White.copy(alpha = 0.13f)
+            val pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 18f), 0f)
+            for (i in 0..7) {
+                val y = size.height * i / 7f
+                drawLine(lineColor, Offset(0f, y), Offset(size.width, y + 60f), strokeWidth = 2f)
+            }
+            for (i in 0..5) {
+                val x = size.width * i / 5f
+                drawLine(lineColor, Offset(x, 0f), Offset(x - 80f, size.height), strokeWidth = 2f)
+            }
+            drawLine(Color(0xFFE90045), Offset(size.width * .20f, size.height * .68f), Offset(size.width * .78f, size.height * .32f), strokeWidth = 8f, pathEffect = pathEffect)
+        }
+        Surface(color = Color.White.copy(alpha = 0.92f), shape = RoundedCornerShape(18.dp), modifier = Modifier.align(Alignment.Center).padding(16.dp)) {
+            Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(title, color = Color(0xFF201626), fontSize = 19.sp, fontWeight = FontWeight.Black)
+                Text(subtitle, color = Color(0xFF625669), fontSize = 13.sp)
+            }
+        }
+        Surface(color = Color(0xFFE90045), shape = CircleShape, modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).size(54.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text("⌖", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black) }
+        }
     }
 }
 
 @Composable
-private fun BottomMenu() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(70.dp)
-            .background(Color(0xFF0D0614))
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceAround
-    ) {
-        BottomItem("Início", true)
-        BottomItem("Pedidos", false)
-        BottomItem("Ganhos", false)
-        BottomItem("Mais", false)
+private fun CountdownBadge(text: String) {
+    Box(modifier = Modifier.size(70.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).border(5.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
+        Text(text, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
     }
 }
 
 @Composable
-private fun BottomItem(text: String, selected: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(if (selected) 8.dp else 6.dp)
-                .clip(CircleShape)
-                .background(if (selected) PurpleAccent else Color.White.copy(alpha = .28f))
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = text,
-            color = if (selected) Color.White else Color.White.copy(alpha = .55f),
-            fontFamily = FontFamily.SansSerif,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center
-        )
+private fun MiniRouteBox(label: String, value: String) {
+    Surface(color = Color.White.copy(alpha = 0.06f), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(if (label.startsWith("Coleta")) Color(0xFF39DD8E) else Color(0xFFFFD24A)))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(label, color = Color(0xFF95899E), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
+}
+
+@Composable
+private fun EarningsStrip() {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        MetricBox("Hoje", "R$ 0,00", Modifier.weight(1f))
+        MetricBox("Corridas", "0", Modifier.weight(1f))
+        MetricBox("Score", "100%", Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun MetricBox(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.07f)).padding(12.dp)) {
+        Text(label, color = Color(0xFF9D92A8), fontSize = 12.sp)
+        Text(value, color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp)
+    }
+}
+
+@Composable
+private fun QuickActionsCard(onSimulateRide: () -> Unit, onOpenNavigator: () -> Unit) {
+    PremiumCard {
+        Text("Ações rápidas", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onSimulateRide, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(18.dp)) { Text("Testar alerta") }
+            OutlinedButton(onClick = onOpenNavigator, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(18.dp)) { Text("GPS") }
+        }
+    }
+}
+
+@Composable
+private fun EarningsContent() {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Ganhos", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        PremiumCard {
+            Text("Resumo do dia", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(18.dp))
+            Text("R$ 0,00", color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black)
+            Text("Nenhuma corrida finalizada hoje.", color = Color(0xFFB9AFC6))
+        }
+        PremiumCard {
+            Text("Próximo repasse", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text("Pix pendente de configuração no painel gestor.", color = Color(0xFFB9AFC6))
+        }
+    }
+}
+
+@Composable
+private fun HistoryContent(onSimulateRide: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Histórico", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        RideHistoryItem("Aguardando novas corridas", "Ofertas aceitas, recusadas e expiradas aparecem aqui.", "AGORA")
+        RideHistoryItem("Rejeitadas", "Registre motivo e mantenha histórico igual app profissional.", "PENDENTE")
+        Button(onClick = onSimulateRide, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))) { Text("Simular corrida") }
+    }
+}
+
+@Composable
+private fun RideHistoryItem(title: String, subtitle: String, tag: String) {
+    PremiumCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text(subtitle, color = Color(0xFFB9AFC6), lineHeight = 20.sp)
+            }
+            Surface(color = Color.White.copy(alpha = 0.08f), shape = RoundedCornerShape(999.dp)) {
+                Text(tag, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountContent() {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Conta", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        PremiumCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(62.dp).clip(CircleShape).background(Color(0xFF2C1838)), contentAlignment = Alignment.Center) { Text("R", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black) }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Entregador Rodrigues", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text("Perfil profissional verificado", color = Color(0xFFB9AFC6))
+                }
+                Text("✓", color = Color(0xFF42F39B), fontSize = 24.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        SettingsRow("Dados pessoais", "Telefone e e-mail com solicitação de alteração")
+        SettingsRow("Recebimento", "Pix, banco e repasse com aprovação do gestor")
+    }
+}
+
+@Composable
+private fun MoreContent(onOpenBatterySettings: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Mais", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
+        SettingsRow("Navegação padrão", "Google Maps, Waze ou padrão do celular")
+        SettingsRow("Notificações urgentes", "Canal full screen + alerta sonoro")
+        SettingsRow("Permissões", "Localização só quando necessário")
+        Button(onClick = onOpenBatterySettings, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE90045))) { Text("Abrir ajustes de bateria") }
+        Text("v1.2.0 nativo • Rodrigues Açaí e Cia", color = Color(0xFF8F839C), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun SettingsRow(title: String, subtitle: String) {
+    PremiumCard {
+        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Text(subtitle, color = Color(0xFFB9AFC6), lineHeight = 20.sp)
+    }
+}
+
+@Composable
+private fun PremiumCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF17101F)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) { Column(Modifier.padding(18.dp), content = content) }
 }

@@ -17,11 +17,15 @@ class UrgentRideActivity : ComponentActivity() {
         val rideId = intent.getStringExtra("rideId") ?: "sem-id"
         val value = intent.getStringExtra("value") ?: "R$ --"
         val distance = intent.getStringExtra("distance") ?: "-- km"
+        val pickup = intent.getStringExtra("pickup") ?: "Rodrigues Açaí e Cia"
+        val dropoff = intent.getStringExtra("dropoff") ?: "Endereço do cliente liberado após aceite"
         setContent {
             UrgentRideScreen(
                 rideId = rideId,
                 value = value,
                 distance = distance,
+                pickup = pickup,
+                dropoff = dropoff,
                 onAccept = { finish() },
                 onReject = { finish() }
             )

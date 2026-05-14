@@ -1,34 +1,37 @@
-# Rodrigues Entregador Nativo
+# Rodrigues Entregador Nativo — V4 Operacional Premium
 
-App Android 100% nativo em Kotlin + Jetpack Compose, sem Capacitor/WebView.
+Projeto Android 100% nativo em Kotlin + Jetpack Compose.
 
-## Como usar no GitHub
+## O que esta versão traz
 
-1. Crie um repositório novo.
-2. Envie todos estes arquivos.
-3. Coloque seu `google-services.json` dentro de `app/`.
-4. Substitua `app/src/main/res/raw/alerta.wav` pelo áudio real.
-5. Faça push para `main`.
-6. Vá em Actions > Build APK Nativo Entregador.
-7. Baixe o APK em Artifacts.
+- Tema escuro premium inspirado na referência visual aprovada
+- Home operacional com status ONLINE/OFFLINE
+- Simulação de nova corrida em tela urgente
+- Oferta de corrida com valor, distância, tempo e paradas
+- Fluxo por estados: aguardando, oferta, coleta e entrega
+- Mapa visual mockado em Compose para não depender ainda de API externa
+- Tela de coleta com botão de navegação
+- Tela de entrega/rota em andamento
+- Ganhos, histórico, conta e menu Mais
+- Foreground service para manter operação online
+- Firebase Messaging preparado para push urgente
+- Notificação full screen preparada
+- GitHub Actions para gerar APK sem Android Studio
 
-## Push esperado para nova corrida
+## Importante
 
-Envie FCM data message com alta prioridade:
+Esta versão é uma base nativa operacional. O mapa ainda é visual/mockado dentro do app.
+A navegação real abre o Google Maps/padrão do celular pelo botão Mapa/GPS.
 
-```json
-{
-  "type": "NEW_RIDE",
-  "rideId": "123",
-  "value": "R$ 12,50",
-  "distance": "3.2 km"
-}
-```
+## Build
 
-## Próximas etapas
+Suba os arquivos no GitHub e rode:
 
-- Salvar token FCM do entregador no Firebase.
-- Salvar online/offline no Firebase.
-- Adicionar localização em background.
-- Criar fluxo aceitar/rejeitar corrida.
-- Integrar navegação Google Maps/Waze.
+Actions > Build APK Nativo Entregador
+
+## Arquivos importantes
+
+- app/google-services.json
+- app/src/main/res/raw/alerta.wav
+- app/src/main/java/com/rodriguesacai/entregador/ui/DriverHomeScreen.kt
+- app/src/main/java/com/rodriguesacai/entregador/ui/UrgentRideScreen.kt

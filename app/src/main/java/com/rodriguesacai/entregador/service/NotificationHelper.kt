@@ -1,6 +1,9 @@
 package com.rodriguesacai.entregador.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -24,14 +27,16 @@ object NotificationHelper {
             CHANNEL_ONLINE,
             "Entregador online",
             NotificationManager.IMPORTANCE_LOW
-        )
+        ).apply {
+            description = "Serviço ativo enquanto o entregador está disponível"
+        }
 
         val urgent = NotificationChannel(
             CHANNEL_URGENT,
             "Corrida urgente",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Alertas de novas corridas"
+            description = "Alertas de novas corridas em tela cheia"
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             enableVibration(true)
             setSound(
@@ -49,27 +54,41 @@ object NotificationHelper {
 
     fun onlineNotification(context: Context): Notification {
         val pending = PendingIntent.getActivity(
-            context, 1, Intent(context, MainActivity::class.java),
+            context,
+            1,
+            Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(context, CHANNEL_ONLINE)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Você está online")
-            .setContentText("Aguardando entregas próximas.")
+            .setContentText("Serviço ativo. Aguardando entregas próximas.")
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pending)
             .build()
     }
 
-    fun urgentRideNotification(context: Context, rideId: String, value: String, distance: String) {
+    fun urgentRideNotification(
+        context: Context,
+        rideId: String,
+        value: String,
+        distance: String,
+        pickup: String,
+        dropoff: String
+    ) {
         val fullScreenIntent = Intent(context, UrgentRideActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("rideId", rideId)
             putExtra("value", value)
             putExtra("distance", distance)
+            putExtra("pickup", pickup)
+            putExtra("dropoff", dropoff)
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
-            context, 2, fullScreenIntent,
+            context,
+            2,
+            fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
