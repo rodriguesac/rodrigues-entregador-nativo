@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -75,6 +76,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
@@ -100,6 +102,13 @@ import com.rodriguesacai.entregador.data.DriverRide
 import com.rodriguesacai.entregador.data.DriverStats
 import com.rodriguesacai.entregador.service.AppAlertPlayer
 import kotlinx.coroutines.delay
+
+
+@Composable
+private fun csp(value: Int): TextUnit {
+    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+    return (value / scale).sp
+}
 
 private enum class AppTab { Inicio, Corridas, Ganhos, Historico, Conta }
 
@@ -144,7 +153,7 @@ fun DriverHomeScreen(
     val context = LocalContext.current
     var profile by remember { mutableStateOf(DriverRepository.currentSession(context)) }
     var tab by remember { mutableStateOf(AppTab.Inicio) }
-    var online by remember { mutableStateOf(DriverRepository.isLocallyOnline(context)) }
+    var online by remember { mutableStateOf(DriverRepository.isOnlineSession(context)) }
     var pendingRide by remember { mutableStateOf<DriverRide?>(null) }
     var activeRide by remember { mutableStateOf<DriverRide?>(null) }
     var history by remember { mutableStateOf<List<DriverHistory>>(emptyList()) }
@@ -175,13 +184,6 @@ fun DriverHomeScreen(
 
     LaunchedEffect(pendingRide?.id, online) {
         if (online && pendingRide != null) AppAlertPlayer.playNewRide(context)
-    }
-
-    LaunchedEffect(profile?.id) {
-        if (profile != null && DriverRepository.isLocallyOnline(context)) {
-            online = true
-            onGoOnline()
-        }
     }
 
     if (profile == null) {
@@ -226,6 +228,10 @@ fun DriverHomeScreen(
         return
     }
 
+    LaunchedEffect(profile?.id) {
+        if (profile != null && online) onGoOnline()
+    }
+
     if (profile?.needsPasswordSetup == true) {
         FirstPasswordScreen(
             profile = profile!!,
@@ -240,7 +246,7 @@ fun DriverHomeScreen(
     Scaffold(
         containerColor = BgBottom,
         bottomBar = {
-            NavigationBar(containerColor = Color(0xFF100B16), tonalElevation = 0.dp) {
+            NavigationBar(containerColor = Color(0xFF090B10), tonalElevation = 0.dp) {
                 navItem(AppTab.Inicio, tab, "Início", Icons.Filled.Home) { tab = it }
                 navItem(AppTab.Corridas, tab, "Corridas", Icons.Filled.Route) { tab = it }
                 navItem(AppTab.Ganhos, tab, "Ganhos", Icons.Filled.AccountBalanceWallet) { tab = it }
@@ -353,84 +359,97 @@ private fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF07090D), Color(0xFF101318), Color(0xFF050607))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF050608), Color(0xFF0A0E0B), Color(0xFF020302))))
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            drawCircle(Lime.copy(alpha = 0.14f), radius = size.width * 0.42f, center = Offset(size.width * 0.08f, size.height * 0.08f))
-            drawCircle(Purple.copy(alpha = 0.16f), radius = size.width * 0.36f, center = Offset(size.width * 0.92f, size.height * 0.12f))
-            drawCircle(Color.White.copy(alpha = 0.05f), radius = size.width * 0.55f, center = Offset(size.width * 0.50f, size.height * 1.05f))
+            drawCircle(color = Lime.copy(alpha = .20f), radius = size.width * .46f, center = Offset(size.width * .92f, size.height * .05f))
+            drawCircle(color = Color(0xFF162015).copy(alpha = .92f), radius = size.width * .68f, center = Offset(size.width * .08f, size.height * .88f))
+            drawLine(Color.White.copy(alpha = .045f), Offset(0f, size.height * .28f), Offset(size.width, size.height * .16f), strokeWidth = 2f)
+            drawLine(Color.White.copy(alpha = .035f), Offset(0f, size.height * .42f), Offset(size.width, size.height * .30f), strokeWidth = 2f)
         }
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 22.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.Center
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Box(
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Brush.linearGradient(listOf(Lime, Color(0xFF2F8D19))))
-                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp)),
+                    Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(17.dp))
+                        .background(Brush.linearGradient(listOf(Lime, Color(0xFF58AA12))))
+                        .border(1.dp, Color.White.copy(alpha = .28f), RoundedCornerShape(17.dp)),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text("R", color = Color(0xFF071007), fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                }
+                ) { Text("R", color = Color(0xFF051005), fontSize = csp(24), fontWeight = FontWeight.Black, fontFamily = AppFont) }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Rodrigues Entregador", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                    Text("Painel do motoboy", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Rodrigues Entregador", color = Ink, fontSize = csp(20), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
+                    Text("Operação nativa • radar em tempo real", color = Lime, fontSize = csp(11), fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1)
                 }
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(LimeDark)
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text("NATIVO", color = Lime, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                }
+                        .background(Color.White.copy(alpha = .07f))
+                        .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(999.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp)
+                ) { Text("V5.7", color = Muted, fontSize = csp(10), fontWeight = FontWeight.Black, fontFamily = AppFont) }
             }
 
             Spacer(Modifier.height(18.dp))
 
-            GlassCard(padding = 0, borderColor = Color.White.copy(alpha = 0.14f)) {
+            Card(
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF101318).copy(alpha = .97f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(32.dp))
+            ) {
                 Column(Modifier.padding(18.dp)) {
-                    Text(
-                        if (mode == "login") "Entrar para receber corridas" else "Cadastro em análise pelo gestor",
-                        color = Ink,
-                        fontSize = 25.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = AppFont,
-                        lineHeight = 28.sp
-                    )
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        if (mode == "login") "Fique disponível e receba a oferta urgente em tela cheia." else "Preencha os dados do entregador. A loja libera após conferir.",
-                        color = Muted,
-                        fontSize = 13.sp,
-                        fontFamily = AppFont
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (mode == "login") "Entrar em operação" else "Solicitar cadastro",
+                                color = Ink,
+                                fontSize = csp(25),
+                                fontWeight = FontWeight.Black,
+                                fontFamily = AppFont,
+                                lineHeight = csp(27)
+                            )
+                            Text(
+                                if (mode == "login") "Acesse, fique disponível e receba ofertas urgentes." else "O gestor aprova antes de liberar corridas.",
+                                color = Muted,
+                                fontSize = csp(12),
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = AppFont,
+                                lineHeight = csp(16)
+                            )
+                        }
+                        RadarPulse(Lime, slow = false)
+                    }
 
-                    Spacer(Modifier.height(15.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LoginMiniStat("Radar", "ativo", Modifier.weight(1f))
+                        LoginMiniStat("Tela", "urgente", Modifier.weight(1f))
+                        LoginMiniStat("Pix", "repasse", Modifier.weight(1f))
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color.White.copy(alpha = .055f), RoundedCornerShape(999.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         ModeButton("Entrar", mode == "login", Modifier.weight(1f)) { mode = "login" }
                         ModeButton("Cadastrar", mode == "cadastro", Modifier.weight(1f)) { mode = "cadastro" }
                     }
 
                     Spacer(Modifier.height(16.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        StatusPill("Alerta urgente", true, Modifier.weight(1f))
-                        StatusPill("Rota no mapa", true, Modifier.weight(1f))
-                    }
-
-                    Spacer(Modifier.height(18.dp))
 
                     if (mode == "login") {
                         AppField(login, { login = it }, "CPF ou telefone", KeyboardType.Number)
@@ -446,19 +465,28 @@ private fun LoginScreen(
                         )
                         Spacer(Modifier.height(14.dp))
                         PrimaryButton(
-                            text = "Entrar e ficar pronto",
+                            text = "Entrar no app",
                             enabled = !loading,
                             loading = loading,
                             onClick = { onLogin(login, password) { loading = it } }
                         )
                         Spacer(Modifier.height(12.dp))
-                        Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)), shape = RoundedCornerShape(18.dp)) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(Lime.copy(alpha = .085f), RoundedCornerShape(18.dp))
+                                .border(1.dp, Lime.copy(alpha = .16f), RoundedCornerShape(18.dp))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("●", color = Lime, fontWeight = FontWeight.Black, fontSize = csp(14))
+                            Spacer(Modifier.width(9.dp))
                             Text(
-                                "Entregador antigo sem senha entra uma vez e cria a senha no primeiro acesso.",
+                                "Entregador antigo cria senha no primeiro acesso.",
                                 color = Muted,
-                                fontSize = 12.sp,
+                                fontSize = csp(11),
                                 fontFamily = AppFont,
-                                modifier = Modifier.padding(12.dp)
+                                lineHeight = csp(15)
                             )
                         }
                     } else {
@@ -498,15 +526,57 @@ private fun LoginScreen(
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(16.dp))
-
+@Composable
+private fun LoginBrandHero() {
+    Card(
+        shape = RoundedCornerShape(34.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF101217).copy(alpha = .90f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(34.dp))
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(68.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Brush.linearGradient(listOf(Lime, Color(0xFF3E8E18))))
+                        .border(1.dp, Color.White.copy(alpha = .25f), RoundedCornerShape(24.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("R", color = Color(0xFF050706), fontSize = csp(32), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Rodrigues Entregador", color = Ink, fontSize = csp(25), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("100% nativo • radar urgente • rota ao toque", color = Lime, fontSize = csp(12), fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                MiniStat("Som", "Ativo", Modifier.weight(1f))
-                MiniStat("Tela cheia", "Urgente", Modifier.weight(1f))
-                MiniStat("Sessão", "Salva", Modifier.weight(1f))
+                LoginMiniStat("Radar", "ao vivo", Modifier.weight(1f))
+                LoginMiniStat("Tela cheia", "urgente", Modifier.weight(1f))
+                LoginMiniStat("Repasse", "claro", Modifier.weight(1f))
             }
         }
+    }
+}
+
+@Composable
+private fun LoginMiniStat(title: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .background(Color.White.copy(alpha = .055f), RoundedCornerShape(20.dp))
+            .border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(20.dp))
+            .padding(12.dp)
+    ) {
+        Text(title, color = Muted2, fontSize = csp(10), fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1)
+        Text(value, color = Ink, fontSize = csp(13), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
     }
 }
 
@@ -522,12 +592,12 @@ private fun BrandHero() {
                     .border(1.dp, Color.White.copy(alpha = .20f), RoundedCornerShape(22.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("R", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("R", color = Color.White, fontSize = csp(28), fontWeight = FontWeight.Black, fontFamily = AppFont)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Rodrigues Entregador", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text("Operação nativa para motoboys", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text("Rodrigues Entregador", color = Ink, fontSize = csp(25), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Operação nativa para motoboys", color = Lime, fontSize = csp(13), fontWeight = FontWeight.Bold, fontFamily = AppFont)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -560,15 +630,15 @@ private fun FirstPasswordScreen(profile: DriverProfile, onSaved: () -> Unit, onL
                 Avatar(profile.name)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Crie sua senha", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text(profile.name, color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Crie sua senha", color = Ink, fontSize = csp(24), fontWeight = FontWeight.Black)
+                    Text(profile.name, color = Muted, fontSize = csp(14), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(Modifier.height(16.dp))
             Text(
                 "Este entregador já existia no gestor. Para segurança, crie uma senha antes de receber corridas.",
                 color = Muted,
-                fontSize = 14.sp
+                fontSize = csp(14)
             )
             Spacer(Modifier.height(14.dp))
             AppField(password, { password = it }, "Nova senha", KeyboardType.Password, PasswordVisualTransformation())
@@ -618,11 +688,11 @@ private fun RowScope.navItem(item: AppTab, selected: AppTab, label: String, icon
         selected = selected == item,
         onClick = { onClick(item) },
         icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp)) },
-        label = { Text(label, fontSize = 10.sp, fontFamily = AppFont, fontWeight = if (selected == item) FontWeight.Black else FontWeight.SemiBold) },
+        label = { Text(label, fontSize = csp(10), fontFamily = AppFont, fontWeight = if (selected == item) FontWeight.Black else FontWeight.SemiBold) },
         colors = NavigationBarItemDefaults.colors(
             selectedIconColor = Ink,
             selectedTextColor = Ink,
-            indicatorColor = Purple,
+            indicatorColor = Lime,
             unselectedIconColor = Muted2,
             unselectedTextColor = Muted2
         )
@@ -699,7 +769,7 @@ private fun DriverHeader(
     operational: OperationalStatus,
     onStatusClick: () -> Unit
 ) {
-    GlassCard(padding = 16) {
+    GlassCard(padding = 14, borderColor = operational.buttonColor.copy(alpha = .22f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(profile.name, profile.photoUrl)
             Spacer(Modifier.width(12.dp))
@@ -707,81 +777,123 @@ private fun DriverHeader(
                 Text(
                     "Olá, ${profile.name.shortName()}",
                     color = Ink,
-                    fontSize = 24.sp,
+                    fontSize = csp(20),
                     fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontFamily = AppFont
                 )
-                Text(
-                    operational.message.ifBlank { "Hoje ${DriverRepository.formatCurrency(stats.totalToday)}" },
-                    color = if (operational.kind == AvailabilityKind.Restricao) Danger else if (operational.kind == AvailabilityKind.Disponivel) Lime else Muted2,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontFamily = AppFont
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(operational.buttonColor))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        operational.message.ifBlank { "Radar pronto para ofertas" },
+                        color = if (operational.kind == AvailabilityKind.Restricao) Danger else if (operational.kind == AvailabilityKind.Disponivel) Lime else Muted2,
+                        fontSize = csp(11),
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontFamily = AppFont
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Hoje", color = Muted2, fontSize = csp(10), fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text(DriverRepository.formatCurrency(stats.totalToday), color = Ink, fontSize = csp(15), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
         Button(
             onClick = onStatusClick,
-            modifier = Modifier.fillMaxWidth().height(58.dp),
-            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(containerColor = operational.buttonColor, contentColor = operational.textColor)
         ) {
-            Text(operational.label, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(operational.label, fontSize = csp(14), fontWeight = FontWeight.Black, fontFamily = AppFont)
         }
     }
 }
 
 @Composable
 private fun EarningsStrip(stats: DriverStats) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        MiniStat("Hoje", DriverRepository.formatCurrency(stats.totalToday), Modifier.weight(1.15f))
-        MiniStat("Corridas", stats.finishedCount.toString(), Modifier.weight(.85f))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        MiniStat("Hoje", DriverRepository.formatCurrency(stats.totalToday), Modifier.weight(1.1f))
+        MiniStat("Corridas", stats.finishedCount.toString(), Modifier.weight(.8f))
         MiniStat("Aceitação", "${stats.score}%", Modifier.weight(.9f))
     }
 }
 
 @Composable
 private fun OfflineCard(status: OperationalStatus) {
-    GlassCard(padding = 18) {
+    GlassCard(padding = 16) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Indisponível", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text(status.message.ifBlank { "Toque no botão acima para ficar disponível" }, color = Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                Text("Indisponível", color = Ink, fontSize = csp(22), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(status.message.ifBlank { "Toque no botão acima para entrar na fila." }, color = Muted, fontSize = csp(12), fontWeight = FontWeight.SemiBold, fontFamily = AppFont, lineHeight = csp(16))
             }
-            Box(Modifier.size(54.dp).clip(CircleShape).background(Color(0xFF25222B)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Circle, contentDescription = null, tint = Muted2, modifier = Modifier.size(18.dp))
-            }
+            StatusOrb(Muted2)
         }
     }
 }
 
 @Composable
 private fun RestrictionCard(status: OperationalStatus) {
-    GlassCard(padding = 18, borderColor = Danger.copy(alpha = .35f)) {
+    GlassCard(padding = 16, borderColor = Danger.copy(alpha = .35f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Restrição ativa", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text(status.message, color = Danger, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Restrição ativa", color = Ink, fontSize = csp(21), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(status.message, color = Danger, fontSize = csp(12), fontWeight = FontWeight.Black, fontFamily = AppFont, lineHeight = csp(16))
             }
-            RadarPulse(Danger, slow = true)
+            StatusOrb(Danger)
         }
     }
 }
 
 @Composable
 private fun WaitingCard(status: OperationalStatus) {
-    GlassCard(padding = 18, borderColor = Lime.copy(alpha = .30f)) {
+    GlassCard(padding = 16, borderColor = Lime.copy(alpha = .30f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Aguardando corridas", color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text(status.message.ifBlank { "Disponível para receber pedidos" }, color = Lime, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Radar ligado", color = Ink, fontSize = csp(23), fontWeight = FontWeight.Black, fontFamily = AppFont, lineHeight = csp(25))
+                Text(status.message.ifBlank { "Aguardando nova oferta" }, color = Lime, fontSize = csp(13), fontWeight = FontWeight.Black, fontFamily = AppFont, lineHeight = csp(17))
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    StatusPill("ONLINE", true)
+                    StatusPill("ESCUTA FIREBASE", true)
+                }
             }
             RadarPulse(Lime, slow = false)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OperationTile("Oferta", "tela cheia", Modifier.weight(1f))
+            OperationTile("Som", "urgente", Modifier.weight(1f))
+            OperationTile("Rota", "1 toque", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun OperationTile(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .background(Color.White.copy(alpha = .055f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 10.dp, vertical = 10.dp)
+    ) {
+        Text(title, color = Ink, fontSize = csp(12), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
+        Text(subtitle, color = Lime, fontSize = csp(10), fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1)
+    }
+}
+
+@Composable
+private fun StatusOrb(color: Color) {
+    Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            drawCircle(color.copy(alpha = .12f), radius = size.minDimension / 2.1f, center = center)
+            drawCircle(color.copy(alpha = .22f), radius = size.minDimension / 3.3f, center = center, style = Stroke(width = 3f))
+            drawCircle(color, radius = 9f, center = center)
         }
     }
 }
@@ -807,16 +919,16 @@ private fun IncomingRideCard(
     GlassCard(padding = 18, borderColor = Lime.copy(alpha = .35f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("OFERTA URGENTE", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                Text(ride.value, color = Ink, fontSize = 44.sp, fontWeight = FontWeight.Black)
-                Text("${ride.distance} • ${ride.duration} • ${ride.stops} paradas", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("OFERTA URGENTE", color = Lime, fontSize = csp(12), fontWeight = FontWeight.Black)
+                Text(ride.value, color = Ink, fontSize = csp(44), fontWeight = FontWeight.Black)
+                Text("${ride.distance} • ${ride.duration} • ${ride.stops} paradas", color = Muted, fontSize = csp(15), fontWeight = FontWeight.SemiBold)
             }
             CountdownBadge(seconds)
         }
         Spacer(Modifier.height(12.dp))
         StopLine("COLETA", ride.pickup, Lime)
         StopLine("ENTREGA", ride.neighborhood.ifBlank { "Bairro da entrega" }, Purple2)
-        Text("Endereço completo da entrega será liberado após aceitar.", color = Muted2, fontSize = 12.sp)
+        Text("Endereço completo da entrega será liberado após aceitar.", color = Muted2, fontSize = csp(12))
         Spacer(Modifier.height(12.dp))
         RealDeliveryMap(
             title = "Rota real da oferta",
@@ -831,7 +943,7 @@ private fun IncomingRideCard(
         Spacer(Modifier.height(12.dp))
         RideFinancialPanel(ride, compact = true)
         Spacer(Modifier.height(14.dp))
-        Text("Motivo da recusa (opcional)", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("Motivo da recusa (opcional)", color = Muted, fontSize = csp(12), fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         val reasons = listOf("Muito longe", "Valor baixo", "Ocupado", "Veículo", "Outro")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -865,8 +977,8 @@ private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, d
     GlassCard(padding = 18, borderColor = Purple2.copy(alpha = .40f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Pedido #${ride.orderCode} • ${ride.value}", color = Muted, fontSize = 14.sp)
+                Text(title, color = Ink, fontSize = csp(24), fontWeight = FontWeight.Black)
+                Text("Pedido #${ride.orderCode} • ${ride.value}", color = Muted, fontSize = csp(14))
             }
             StatusPill(ride.status.statusLabel(), true)
         }
@@ -918,8 +1030,8 @@ private fun RideFinancialPanel(ride: DriverRide, compact: Boolean) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Financeiro da corrida", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                    Text("Valor do app = repasse frota/piloto", color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                    Text("Financeiro da corrida", color = Ink, fontSize = csp(15), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Valor do app = repasse frota/piloto", color = Muted2, fontSize = csp(11), fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
                 }
                 StatusPill(ride.paymentMethod.ifBlank { "Pagamento" }.take(12), true)
             }
@@ -933,10 +1045,10 @@ private fun RideFinancialPanel(ride: DriverRide, compact: Boolean) {
                     MiniStat("Repassar loja", moneyOrDash(ride.storeReturnNumber), Modifier.weight(1f))
                 }
                 if (ride.machineFeeNumber > 0.0) {
-                    Text("Taxa maquininha: ${moneyOrDash(ride.machineFeeNumber)}", color = Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                    Text("Taxa maquininha: ${moneyOrDash(ride.machineFeeNumber)}", color = Warning, fontSize = csp(12), fontWeight = FontWeight.Bold, fontFamily = AppFont)
                 }
             } else {
-                Text("Cliente pago pela loja/app. Nada a repassar agora.", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text("Cliente pago pela loja/app. Nada a repassar agora.", color = Lime, fontSize = csp(12), fontWeight = FontWeight.Bold, fontFamily = AppFont)
             }
         }
     }
@@ -958,8 +1070,8 @@ private fun RidesContent(
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         GlassCard(padding = 18) {
-            Text("Corridas", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-            Text("Oferta recebida, rota ativa e operação em andamento.", color = Muted, fontSize = 14.sp, fontFamily = AppFont)
+            Text("Corridas", color = Ink, fontSize = csp(28), fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text("Oferta recebida, rota ativa e operação em andamento.", color = Muted, fontSize = csp(14), fontFamily = AppFont)
         }
         when {
             activeRide != null -> ActiveRideCard(activeRide, onOpenNavigator, onUpdateRide)
@@ -977,8 +1089,8 @@ private fun EarningsContent(profile: DriverProfile, stats: DriverStats, history:
         GlassCard(padding = 18) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Meus ganhos", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                    Text("Resumo financeiro do entregador", color = Muted, fontSize = 14.sp, fontFamily = AppFont)
+                    Text("Meus ganhos", color = Ink, fontSize = csp(28), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Resumo financeiro do entregador", color = Muted, fontSize = csp(14), fontFamily = AppFont)
                 }
                 TextButton(onClick = { visible = !visible }) {
                     Icon(
@@ -991,7 +1103,7 @@ private fun EarningsContent(profile: DriverProfile, stats: DriverStats, history:
             }
             Spacer(Modifier.height(18.dp))
             MoneyText(DriverRepository.formatCurrency(stats.totalToday), visible, 46)
-            Text("Hoje • ${stats.finishedCount} corridas finalizadas", color = Lime, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            Text("Hoje • ${stats.finishedCount} corridas finalizadas", color = Lime, fontSize = csp(15), fontWeight = FontWeight.Bold, fontFamily = AppFont)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MiniStat("Semana", if (visible) DriverRepository.formatCurrency(stats.totalWeek) else "R$ •••••", Modifier.weight(1f))
@@ -1000,9 +1112,9 @@ private fun EarningsContent(profile: DriverProfile, stats: DriverStats, history:
         GlassCard(padding = 16) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Próximo repasse", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                    Text(if (visible) "Pix: ${profile.pixKey.ifBlank { "não cadastrado" }}" else "Pix: •••••", color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
-                    Text(if (visible) "Banco: ${profile.bankName.ifBlank { "não informado" }}" else "Banco: •••••", color = Muted2, fontSize = 13.sp, fontFamily = AppFont)
+                    Text("Próximo repasse", color = Ink, fontSize = csp(20), fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text(if (visible) "Pix: ${profile.pixKey.ifBlank { "não cadastrado" }}" else "Pix: •••••", color = Muted, fontSize = csp(14), maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
+                    Text(if (visible) "Banco: ${profile.bankName.ifBlank { "não informado" }}" else "Banco: •••••", color = Muted2, fontSize = csp(13), fontFamily = AppFont)
                 }
             }
         }
@@ -1015,7 +1127,7 @@ private fun MoneyText(value: String, visible: Boolean, fontSize: Int) {
     Text(
         if (visible) value else "R$ •••••",
         color = Ink,
-        fontSize = fontSize.sp,
+        fontSize = csp(fontSize),
         fontWeight = FontWeight.Black,
         fontFamily = AppFont,
         maxLines = 1,
@@ -1030,8 +1142,8 @@ private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = fal
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         GlassCard(padding = 16) {
-            Text("Histórico de corridas", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text("Aceitas, recusadas, expiradas e finalizadas", color = Muted, fontSize = 14.sp)
+            Text("Histórico de corridas", color = Ink, fontSize = csp(24), fontWeight = FontWeight.Black)
+            Text("Aceitas, recusadas, expiradas e finalizadas", color = Muted, fontSize = csp(14))
             Spacer(Modifier.height(12.dp))
             if (history.isEmpty()) {
                 EmptyState("Nenhum registro ainda", "As corridas aparecerão aqui automaticamente.")
@@ -1049,8 +1161,8 @@ private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = fal
 private fun HistoryRow(item: DriverHistory) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(item.action.statusLabel(), color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
-            Text("#${item.rideId.takeLast(6).uppercase()} • ${item.createdLabel}", color = Muted2, fontSize = 12.sp)
+            Text(item.action.statusLabel(), color = Ink, fontWeight = FontWeight.Black, fontSize = csp(15))
+            Text("#${item.rideId.takeLast(6).uppercase()} • ${item.createdLabel}", color = Muted2, fontSize = csp(12))
         }
         Text(item.value.ifBlank { "—" }, color = if (item.action.contains("REJEIT", true) || item.action.contains("EXPIR", true)) Muted2 else Lime, fontWeight = FontWeight.Black)
     }
@@ -1084,8 +1196,8 @@ private fun AccountContent(
                 Avatar(profile.name, profile.photoUrl)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(profile.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
-                    Text("Verificado profissional", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                    Text(profile.name, color = Ink, fontSize = csp(22), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
+                    Text("Verificado profissional", color = Lime, fontSize = csp(13), fontWeight = FontWeight.Bold, fontFamily = AppFont)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -1253,7 +1365,7 @@ private fun SettingsCenterContent(
             SettingButton("Problemas com corrida", "Relatar ocorrência")
         }
         SettingsSection("Sobre") {
-            SettingButton("Versão do app", "5.3.2 aguarda loja")
+            SettingButton("Versão do app", "5.7.0 radar premium")
             SettingButton("Termos e privacidade", "Documentos do app")
         }
     }
@@ -1262,7 +1374,7 @@ private fun SettingsCenterContent(
 @Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Spacer(Modifier.height(14.dp))
-    Text(title, color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+    Text(title, color = Lime, fontSize = csp(12), fontWeight = FontWeight.Black, fontFamily = AppFont)
     Spacer(Modifier.height(8.dp))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
 }
@@ -1278,8 +1390,8 @@ private fun SettingButton(title: String, subtitle: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-            Text(subtitle, color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            Text(title, color = Ink, fontSize = csp(14), fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(subtitle, color = Muted2, fontSize = csp(11), fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
         }
     }
 }
@@ -1299,8 +1411,8 @@ private fun MoreContent(
         GlassCard(padding = 18) {
             SectionTitle("Mais", "Preferências e suporte operacional.")
             Spacer(Modifier.height(16.dp))
-            Text("Navegação padrão", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text("Escolha o app usado no botão Iniciar navegação.", color = Muted, fontSize = 13.sp)
+            Text("Navegação padrão", color = Ink, fontSize = csp(18), fontWeight = FontWeight.Black)
+            Text("Escolha o app usado no botão Iniciar navegação.", color = Muted, fontSize = csp(13))
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ModeButton("Celular", navPreference == AppSettings.NAV_AUTO, Modifier.weight(1f)) { navPreference = AppSettings.NAV_AUTO; AppSettings.setNavigationApp(context, navPreference) }
@@ -1308,7 +1420,7 @@ private fun MoreContent(
                 ModeButton("Waze", navPreference == AppSettings.NAV_WAZE, Modifier.weight(1f)) { navPreference = AppSettings.NAV_WAZE; AppSettings.setNavigationApp(context, navPreference) }
             }
             Spacer(Modifier.height(10.dp))
-            Text("Atual: ${AppSettings.navigationLabel(navPreference)}", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Atual: ${AppSettings.navigationLabel(navPreference)}", color = Lime, fontSize = csp(13), fontWeight = FontWeight.Bold)
         }
 
         GlassCard(padding = 18) {
@@ -1336,8 +1448,8 @@ private fun MoreContent(
 
 
         GlassCard(padding = 18) {
-            Text("Rodrigues Entregador", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("Versão 5.4.0 • Torre V9.4", color = Muted2, fontSize = 12.sp)
+            Text("Rodrigues Entregador", color = Ink, fontSize = csp(20), fontWeight = FontWeight.Black)
+            Text("Versão 5.7.0 • Radar premium", color = Muted2, fontSize = csp(12))
         }
     }
 }
@@ -1349,12 +1461,12 @@ private fun PermissionRow(label: String, ok: Boolean, onFix: () -> Unit) {
         StatusPill(if (ok) "OK" else "AJUSTAR", ok)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-            Text(if (ok) "Configurado" else "Toque para liberar", color = if (ok) Lime else Warning, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            Text(label, color = Ink, fontSize = csp(14), fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(if (ok) "Configurado" else "Toque para liberar", color = if (ok) Lime else Warning, fontSize = csp(11), fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
         }
         if (!ok) {
             OutlinedButton(onClick = onFix, shape = RoundedCornerShape(16.dp)) {
-                Text("Abrir", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Abrir", color = Ink, fontSize = csp(12), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1363,11 +1475,11 @@ private fun PermissionRow(label: String, ok: Boolean, onFix: () -> Unit) {
 @Composable
 private fun GlassCard(padding: Int = 16, borderColor: Color = Color.White.copy(alpha = 0.10f), content: @Composable ColumnScope.() -> Unit) {
     Card(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = PanelSoft),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, borderColor, RoundedCornerShape(28.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
     ) {
         Column(Modifier.padding(padding.dp), content = content)
     }
@@ -1375,8 +1487,8 @@ private fun GlassCard(padding: Int = 16, borderColor: Color = Color.White.copy(a
 
 @Composable
 private fun SectionTitle(title: String, subtitle: String) {
-    Text(title, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-    Text(subtitle, color = Muted, fontSize = 13.sp, fontFamily = AppFont)
+    Text(title, color = Ink, fontSize = csp(22), fontWeight = FontWeight.Black, fontFamily = AppFont)
+    Text(subtitle, color = Muted, fontSize = csp(13), fontFamily = AppFont)
 }
 
 @Composable
@@ -1399,7 +1511,7 @@ private fun AppField(
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = visualTransformation,
         trailingIcon = if (trailing != null && onTrailing != null) {
-            { TextButton(onClick = onTrailing) { Text(trailing, color = Lime, fontSize = 11.sp, fontFamily = AppFont) } }
+            { TextButton(onClick = onTrailing) { Text(trailing, color = Lime, fontSize = csp(11), fontFamily = AppFont) } }
         } else null
     )
 }
@@ -1409,12 +1521,12 @@ private fun PrimaryButton(text: String, enabled: Boolean = true, loading: Boolea
     Button(
         enabled = enabled,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
+        modifier = Modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Purple, contentColor = Color.White)
+        colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color(0xFF061005))
     ) {
         if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Lime)
-        else Text(text, fontWeight = FontWeight.Black, fontFamily = AppFont)
+        else Text(text, fontWeight = FontWeight.Black, fontFamily = AppFont, fontSize = csp(13))
     }
 }
 
@@ -1425,10 +1537,10 @@ private fun ModeButton(text: String, selected: Boolean, modifier: Modifier = Mod
         modifier = modifier.height(46.dp),
         shape = RoundedCornerShape(999.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) Purple else Color.White.copy(alpha = .08f),
-            contentColor = if (selected) Color.White else Muted
+            containerColor = if (selected) Lime else Color.Transparent,
+            contentColor = if (selected) Color(0xFF061005) else Muted
         )
-    ) { Text(text, fontWeight = FontWeight.Black, fontSize = 13.sp, fontFamily = AppFont) }
+    ) { Text(text, fontWeight = FontWeight.Black, fontSize = csp(13), fontFamily = AppFont) }
 }
 
 @Composable
@@ -1438,13 +1550,13 @@ private fun TinyChip(text: String, selected: Boolean, modifier: Modifier = Modif
         modifier = modifier.height(38.dp),
         shape = RoundedCornerShape(999.dp),
         colors = ButtonDefaults.buttonColors(containerColor = if (selected) Purple else Color.White.copy(alpha = .07f), contentColor = if (selected) Color.White else Muted)
-    ) { Text(text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    ) { Text(text, fontSize = csp(11), maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 @Composable
 private fun StatusMessage(text: String, isError: Boolean) {
     Card(colors = CardDefaults.cardColors(containerColor = if (isError) Color(0xFF421824) else LimeDark), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(text, color = if (isError) Color(0xFFFFC4D0) else Lime, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
+        Text(text, color = if (isError) Color(0xFFFFC4D0) else Lime, fontSize = csp(13), fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
     }
 }
 
@@ -1465,7 +1577,7 @@ private fun Avatar(name: String, photoUrl: String = "") {
                 modifier = Modifier.fillMaxSize().clip(CircleShape)
             )
         } else {
-            Text(name.trim().firstOrNull()?.uppercase() ?: "E", color = Ink, fontWeight = FontWeight.Black, fontSize = 22.sp, fontFamily = AppFont)
+            Text(name.trim().firstOrNull()?.uppercase() ?: "E", color = Ink, fontWeight = FontWeight.Black, fontSize = csp(22), fontFamily = AppFont)
         }
     }
 }
@@ -1479,16 +1591,20 @@ private fun StatusPill(text: String, positive: Boolean, modifier: Modifier = Mod
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = if (positive) Lime else Color(0xFFFFB5C4), fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = if (positive) Lime else Color(0xFFFFB5C4), fontSize = csp(11), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 private fun MiniStat(label: String, value: String, modifier: Modifier) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)), shape = RoundedCornerShape(20.dp), modifier = modifier.border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(20.dp))) {
-        Column(Modifier.padding(12.dp)) {
-            Text(label, color = Muted2, fontSize = 12.sp)
-            Text(value, color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF14161D).copy(alpha = .96f)),
+        shape = RoundedCornerShape(18.dp),
+        modifier = modifier.border(1.dp, Color.White.copy(alpha = .075f), RoundedCornerShape(18.dp))
+    ) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 10.dp)) {
+            Text(label, color = Muted2, fontSize = csp(10), fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1)
+            Text(value, color = Ink, fontSize = csp(15), fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -1497,8 +1613,8 @@ private fun MiniStat(label: String, value: String, modifier: Modifier) {
 private fun EmptyState(title: String, subtitle: String) {
     Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
-            Text(subtitle, color = Muted2, fontSize = 12.sp, textAlign = TextAlign.Center)
+            Text(title, color = Ink, fontSize = csp(16), fontWeight = FontWeight.Black)
+            Text(subtitle, color = Muted2, fontSize = csp(12), textAlign = TextAlign.Center)
         }
     }
 }
@@ -1554,12 +1670,12 @@ private fun NativeRoutePreview(title: String, subtitle: String) {
             drawCircle(Color.White.copy(alpha = .20f), 28f, Offset(size.width * .84f, size.height * .32f))
         }
         Column(Modifier.align(Alignment.TopStart).padding(14.dp)) {
-            Text("VILA NASCENTE", color = Color.White.copy(alpha = .28f), fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Text("CARANDÁ BOSQUE", color = Color.White.copy(alpha = .22f), fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("VILA NASCENTE", color = Color.White.copy(alpha = .28f), fontSize = csp(11), fontWeight = FontWeight.Black)
+            Text("CARANDÁ BOSQUE", color = Color.White.copy(alpha = .22f), fontSize = csp(11), fontWeight = FontWeight.Black)
         }
         Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
-            Text(title, color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-            Text(subtitle, color = Muted, fontSize = 13.sp)
+            Text(title, color = Ink, fontWeight = FontWeight.Black, fontSize = csp(18))
+            Text(subtitle, color = Muted, fontSize = csp(13))
         }
     }
 }
@@ -1570,8 +1686,8 @@ private fun StopLine(label: String, value: String, color: Color) {
         Box(Modifier.size(13.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Text(value, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(label, color = Muted2, fontSize = csp(11), fontWeight = FontWeight.Black)
+            Text(value, color = Ink, fontSize = csp(15), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -1587,8 +1703,8 @@ private fun CountdownBadge(seconds: Int) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(seconds.toString(), color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
-            Text("seg", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(seconds.toString(), color = Ink, fontWeight = FontWeight.Black, fontSize = csp(20))
+            Text("seg", color = Muted, fontSize = csp(10), fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1596,8 +1712,8 @@ private fun CountdownBadge(seconds: Int) {
 @Composable
 private fun InfoLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(label, color = Muted2, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = Muted2, fontSize = csp(13), modifier = Modifier.weight(1f))
+        Text(value, color = Ink, fontSize = csp(13), fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

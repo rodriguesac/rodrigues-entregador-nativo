@@ -10,6 +10,7 @@ import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
 import java.security.MessageDigest
 import java.text.NumberFormat
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -50,6 +51,11 @@ object DriverRepository {
         )
     }
 
+
+    fun isOnlineSession(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ONLINE, false)
+    }
+
     fun logout(context: Context, onDone: () -> Unit = {}) {
         val session = currentSession(context)
         if (session != null) {
@@ -64,7 +70,7 @@ object DriverRepository {
                 SetOptions.merge()
             )
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().putBoolean(KEY_ONLINE, false).apply()
         onDone()
     }
 
@@ -135,7 +141,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "5.5.0-radar-fix-login",
+            "appVersion" to "5.7.0-radar-premium",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -178,7 +184,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.5.0-radar-fix-login"
+                "appVersion" to "5.7.0-radar-premium"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -218,7 +224,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.5.0-radar-fix-login"
+                "appVersion" to "5.7.0-radar-premium"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -257,7 +263,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "5.5.0-radar-fix-login",
+                "appVersion" to "5.7.0-radar-premium",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -359,7 +365,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "5.5.0-radar-fix-login"
+                "appVersion" to "5.7.0-radar-premium"
             ),
             SetOptions.merge()
         )
@@ -367,12 +373,7 @@ object DriverRepository {
         onSuccess(profile)
     }
 
-    fun isLocallyOnline(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ONLINE, false)
-    }
-
     fun setOnline(context: Context, online: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ONLINE, online).apply()
         val profile = currentSession(context) ?: return
         val payload = linkedMapOf<String, Any?>(
             "id" to profile.id,
@@ -386,9 +387,10 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "5.5.0-radar-fix-login"
+            "appVersion" to "5.7.0-radar-premium"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ONLINE, online).apply()
         if (online) saveMessagingToken(context)
     }
 
@@ -424,18 +426,53 @@ object DriverRepository {
         }
 
         val registrations = mutableListOf<ListenerRegistration>()
+        val driverKeys = listOf(
+            profile.id,
+            profile.name,
+            profile.name.normalizeDriverKey(),
+            profile.phone,
+            profile.phone.onlyDigitsLocal()
+        ).filter { it.isNotBlank() }.distinct()
+
         MISSION_COLLECTIONS.forEach { collectionName ->
             val base = db.collection(collectionName)
-            val queries = listOf(
-                base.limit(250),
-                base.whereEqualTo("status", "BUSCANDO_ENTREGADOR").limit(80),
-                base.whereEqualTo("statusEntrega", "BUSCANDO_ENTREGADOR").limit(80),
-                base.whereEqualTo("statusOfertaEntregador", "OFERTA").limit(80),
-                base.whereEqualTo("statusEntregador", "OFERTA").limit(80),
-                base.whereEqualTo("statusMotoboy", "OFERTA").limit(80),
-                base.whereEqualTo("liberadoParaEntregador", true).limit(80),
-                base.whereEqualTo("ofertaLiberada", true).limit(80)
+            val queries = mutableListOf(
+                base.limit(350),
+                base.whereEqualTo("status", "BUSCANDO_ENTREGADOR").limit(120),
+                base.whereEqualTo("statusEntrega", "BUSCANDO_ENTREGADOR").limit(120),
+                base.whereEqualTo("statusOfertaEntregador", "OFERTA").limit(120),
+                base.whereEqualTo("statusEntregador", "OFERTA").limit(120),
+                base.whereEqualTo("statusMotoboy", "OFERTA").limit(120),
+                base.whereEqualTo("liberadoParaEntregador", true).limit(120),
+                base.whereEqualTo("ofertaLiberada", true).limit(120),
+                base.whereEqualTo("ofertarEntregador", true).limit(120),
+                base.whereEqualTo("enviarParaEntregador", true).limit(120),
+                base.whereEqualTo("paraTodos", true).limit(120),
+                base.whereEqualTo("broadcast", true).limit(120)
             )
+
+            val targetFields = listOf(
+                "entregadorAtualOferta",
+                "motoboyAtualOferta",
+                "targetDriverId",
+                "ofertaParaEntregadorId",
+                "ofertaDriverId",
+                "driverAtualOferta",
+                "pilotoAtualOferta",
+                "entregadorSelecionadoId",
+                "entregadorAtualOfertaNome",
+                "motoboyAtualOfertaNome",
+                "driverAtualOfertaNome",
+                "pilotoAtualOfertaNome",
+                "nomeEntregadorAtualOferta",
+                "nomeMotoboyAtualOferta",
+                "entregadorNomeOferta",
+                "motoboyNomeOferta",
+                "ofertaParaEntregadorNome"
+            )
+            driverKeys.forEach { key ->
+                targetFields.forEach { field -> queries.add(base.whereEqualTo(field, key).limit(80)) }
+            }
 
             queries.forEachIndexed { index, firestoreQuery ->
                 val key = "$collectionName:$index"
@@ -447,7 +484,7 @@ object DriverRepository {
                         }
                         val rides = snap?.documents.orEmpty()
                             .mapNotNull { doc -> doc.toDriverRide(collectionName) }
-                            .filter { ride -> ride.status == "pending" && ride.canBeOfferedTo(profile.id) }
+                            .filter { ride -> ride.status == "pending" && ride.canBeOfferedTo(profile) }
                             .distinctBy { it.id }
                         state[key] = rides
                         emit()
@@ -960,12 +997,28 @@ data class DriverRide(
 ) {
     fun matchesDriver(driverId: String): Boolean {
         val ids = listOf(assignedDriverId, targetDriverId).filter { it.isNotBlank() }
-        return ids.contains(driverId)
+        return ids.any { it.sameDriverKey(driverId) }
+    }
+
+    fun matchesDriver(profile: DriverProfile): Boolean {
+        val targetKeys = listOf(assignedDriverId, targetDriverId).filter { it.isNotBlank() }
+        if (targetKeys.isEmpty()) return false
+        val profileKeys = listOf(profile.id, profile.name, profile.phone, profile.phone.onlyDigitsLocal())
+            .filter { it.isNotBlank() }
+        return targetKeys.any { target -> profileKeys.any { key -> target.sameDriverKey(key) } }
     }
 
     fun canBeOfferedTo(driverId: String): Boolean {
-        if (rejectedDriverIds.contains(driverId) || expiredDriverIds.contains(driverId)) return false
+        if (rejectedDriverIds.any { it.sameDriverKey(driverId) } || expiredDriverIds.any { it.sameDriverKey(driverId) }) return false
         if (matchesDriver(driverId)) return true
+        return broadcast || (assignedDriverId.isBlank() && targetDriverId.isBlank())
+    }
+
+    fun canBeOfferedTo(profile: DriverProfile): Boolean {
+        val profileKeys = listOf(profile.id, profile.name, profile.phone, profile.phone.onlyDigitsLocal()).filter { it.isNotBlank() }
+        if (rejectedDriverIds.any { rejected -> profileKeys.any { rejected.sameDriverKey(it) } }) return false
+        if (expiredDriverIds.any { expired -> profileKeys.any { expired.sameDriverKey(it) } }) return false
+        if (matchesDriver(profile)) return true
         return broadcast || (assignedDriverId.isBlank() && targetDriverId.isBlank())
     }
 }
@@ -1134,9 +1187,9 @@ private fun DocumentSnapshot.deliveryReleasedToDriver(collectionName: String): B
     val deliveryIsOffering = deliveryStatus in PEDIDO_OFFER_STATUSES
     val mainStatusIsDispatch = mainStatus in PEDIDO_OFFER_STATUSES
 
-    // Oferta disparada pela Torre não pode depender do status de produção do pedido.
-    // Em vários fluxos o painel muda o campo principal `status` para BUSCANDO_ENTREGADOR,
-    // então a checagem antiga de loja aceita barrava exatamente a oferta que deveria tocar.
+    // Quando a Torre joga no radar, o campo principal pode virar BUSCANDO_ENTREGADOR
+    // antes de existir qualquer flag antiga de aceite da loja. Nesse caso a oferta
+    // precisa tocar imediatamente no app, sem esperar pedidoAceito/confirmado.
     if (explicitRelease || deliveryIsOffering || mainStatusIsDispatch) return true
 
     return storeAcceptedForDelivery()
@@ -1215,7 +1268,9 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
     )
     val target = anyString(
         "entregadorAtualOferta", "motoboyAtualOferta", "targetDriverId", "ofertaParaEntregadorId",
-        "ofertaDriverId", "driverAtualOferta", "pilotoAtualOferta", "entregadorSelecionadoId"
+        "ofertaDriverId", "driverAtualOferta", "pilotoAtualOferta", "entregadorSelecionadoId",
+        "entregadorAtualOfertaNome", "motoboyAtualOfertaNome", "driverAtualOfertaNome",
+        "pilotoAtualOfertaNome", "nomeEntregadorAtualOferta", "nomeMotoboyAtualOferta"
     )
     val rejected = anyStringList("rejeitados", "rejeitadoPor", "rejeitadosIds", "entregadoresRejeitaram", "rejectedDriverIds")
     val expired = anyStringList("expiredDriverIds", "expiradoPara", "expirados")
@@ -1388,6 +1443,23 @@ private fun DocumentSnapshot.anyAddressString(): String {
 }
 
 private fun String.upperOrTrim(): String = trim().uppercase(Locale.ROOT)
+private fun String.sameDriverKey(other: String): Boolean {
+    val a = trim()
+    val b = other.trim()
+    if (a.isBlank() || b.isBlank()) return false
+    if (a.equals(b, ignoreCase = true)) return true
+    val ad = a.onlyDigitsLocal()
+    val bd = b.onlyDigitsLocal()
+    if (ad.isNotBlank() && bd.isNotBlank() && ad == bd) return true
+    val an = a.normalizeDriverKey()
+    val bn = b.normalizeDriverKey()
+    return an.isNotBlank() && an == bn
+}
+
+private fun String.normalizeDriverKey(): String = Normalizer.normalize(trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+    .replace(Regex("\\p{Mn}+"), "")
+    .replace(Regex("[^a-z0-9]"), "")
+
 
 private fun String.onlyDigitsLocal(): String = filter { it.isDigit() }
 

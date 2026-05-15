@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
         val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (pendingOnlineStart && (fine || coarse)) startOnlineService()
+        // Localização é importante para rota, mas o radar já foi ativado antes.
         pendingOnlineStart = false
     }
 
@@ -54,7 +54,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestLocationAndStartOnline() {
-        pendingOnlineStart = true
+        // O radar não pode depender da permissão de localização. Primeiro liga o
+        // serviço/listener para receber oferta; depois pede GPS para mapa/rota.
+        startOnlineService()
+        pendingOnlineStart = false
         locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
