@@ -13,8 +13,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 35
-        versionCode = 56
-        versionName = "5.2-operacional-jvm18-force"
+        versionCode = 57
+        versionName = "5.2-clean-operacional"
     }
 
     compileOptions {

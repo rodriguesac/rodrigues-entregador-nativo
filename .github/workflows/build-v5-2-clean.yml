@@ -1,4 +1,4 @@
-name: FORCE BUILD APK V5.2 JVM 1.8
+name: BUILD APK V5.2 CLEAN
 
 on:
   workflow_dispatch:
@@ -23,14 +23,12 @@ jobs:
         with:
           cache-disabled: true
 
-      - name: Conferir arquivos JVM
+      - name: Conferir arquivos limpos
         run: |
-          echo "===== ROOT build.gradle.kts ====="
-          cat build.gradle.kts
-          echo "===== APP build.gradle.kts ====="
+          echo "===== app/src/main/java ====="
+          find app/src/main/java -type f | sort
+          echo "===== app/build.gradle.kts ====="
           cat app/build.gradle.kts
-          echo "===== gradle.properties ====="
-          cat gradle.properties
 
       - name: Build Debug APK limpo
         run: gradle --no-daemon clean :app:assembleDebug --rerun-tasks --stacktrace
@@ -38,5 +36,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: rodrigues-entregador-v5-2-jvm18-debug
+          name: rodrigues-entregador-v5-2-clean-debug
           path: app/build/outputs/apk/debug/*.apk
