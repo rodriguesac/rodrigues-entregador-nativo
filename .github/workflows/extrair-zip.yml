@@ -1,0 +1,27 @@
+name: Extrair ZIP do projeto
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extrair ZIP
+        run: |
+          unzip -o rodrigues-entregador-v5-final-base.zip -d .
+          rm rodrigues-entregador-v5-final-base.zip
+
+      - name: Commit arquivos extraidos
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Extrai projeto entregador V5 final" || echo "Nada para commitar"
+          git push
