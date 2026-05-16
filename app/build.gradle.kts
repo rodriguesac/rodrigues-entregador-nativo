@@ -5,10 +5,6 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-kotlin {
-    jvmToolchain(17)
-}
-
 android {
     namespace = "com.rodriguesacai.entregador"
     compileSdk = 35
@@ -17,17 +13,17 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 35
-        versionCode = 55
-        versionName = "5.2-operacional-jvmfix"
+        versionCode = 56
+        versionName = "5.2-operacional-jvm18-force"
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "1.8"
     }
 
     buildFeatures {

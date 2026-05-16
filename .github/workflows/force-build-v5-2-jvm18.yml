@@ -1,4 +1,4 @@
-name: Build APK Entregador V5.2
+name: FORCE BUILD APK V5.2 JVM 1.8
 
 on:
   workflow_dispatch:
@@ -9,32 +9,34 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout atualizado
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java 17 para rodar Gradle
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Gradle
+      - name: Setup Gradle sem cache antigo
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
-      - name: Conferir arquivos Gradle
+      - name: Conferir arquivos JVM
         run: |
-          echo "===== build.gradle.kts raiz ====="
+          echo "===== ROOT build.gradle.kts ====="
           cat build.gradle.kts
-          echo "===== app/build.gradle.kts ====="
+          echo "===== APP build.gradle.kts ====="
           cat app/build.gradle.kts
           echo "===== gradle.properties ====="
           cat gradle.properties
 
-      - name: Build Debug APK
-        run: gradle --no-daemon clean assembleDebug --rerun-tasks
+      - name: Build Debug APK limpo
+        run: gradle --no-daemon clean :app:assembleDebug --rerun-tasks --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: rodrigues-entregador-v5-2-debug
+          name: rodrigues-entregador-v5-2-jvm18-debug
           path: app/build/outputs/apk/debug/*.apk
