@@ -1,0 +1,10 @@
+_backup*/
+*.zip
+arquivos/
+rodrigues-entregador-nativo-v*/
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
