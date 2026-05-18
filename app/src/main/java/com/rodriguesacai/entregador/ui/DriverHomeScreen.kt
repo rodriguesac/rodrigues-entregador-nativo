@@ -99,6 +99,7 @@ import com.rodriguesacai.entregador.data.DriverRepository
 import com.rodriguesacai.entregador.data.DriverRide
 import com.rodriguesacai.entregador.data.DriverStats
 import com.rodriguesacai.entregador.service.AppAlertPlayer
+import com.rodriguesacai.entregador.service.NotificationHelper
 import kotlinx.coroutines.delay
 
 private enum class AppTab { Inicio, Corridas, Ganhos, Historico, Conta }
@@ -174,7 +175,18 @@ fun DriverHomeScreen(
     }
 
     LaunchedEffect(pendingRide?.id, online) {
-        if (online && pendingRide != null) AppAlertPlayer.playNewRide(context)
+        val ride = pendingRide
+        if (online && ride != null) {
+            NotificationHelper.urgentRideNotification(
+                context = context,
+                rideId = ride.id,
+                value = ride.value,
+                distance = ride.distance,
+                duration = ride.duration,
+                pickup = ride.pickup,
+                dropoff = ride.dropoff
+            )
+        }
     }
 
     if (profile == null) {

@@ -30,5 +30,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: rodrigues-entregador-nativo-debug-v5-4-1
+          name: rodrigues-entregador-nativo-debug-v5-5-radar-real
           path: app/build/outputs/apk/debug/app-debug.apk

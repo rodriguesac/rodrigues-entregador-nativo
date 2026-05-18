@@ -134,7 +134,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "5.4.0-torre-v9-4",
+            "appVersion" to "5.5.0-radar-real-torre-v7-6",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -177,7 +177,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.4.0-torre-v9-4"
+                "appVersion" to "5.5.0-radar-real-torre-v7-6"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -217,7 +217,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.4.0-torre-v9-4"
+                "appVersion" to "5.5.0-radar-real-torre-v7-6"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -256,7 +256,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "5.4.0-torre-v9-4",
+                "appVersion" to "5.5.0-radar-real-torre-v7-6",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -358,7 +358,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "5.4.0-torre-v9-4"
+                "appVersion" to "5.5.0-radar-real-torre-v7-6"
             ),
             SetOptions.merge()
         )
@@ -380,7 +380,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "5.4.0-torre-v9-4"
+            "appVersion" to "5.5.0-radar-real-torre-v7-6"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
@@ -428,7 +428,13 @@ object DriverRepository {
                 base.whereEqualTo("statusEntregador", "OFERTA").limit(80),
                 base.whereEqualTo("statusMotoboy", "OFERTA").limit(80),
                 base.whereEqualTo("liberadoParaEntregador", true).limit(80),
-                base.whereEqualTo("ofertaLiberada", true).limit(80)
+                base.whereEqualTo("ofertaLiberada", true).limit(80),
+                base.whereEqualTo("entregadorAtualOferta", profile.id).limit(80),
+                base.whereEqualTo("targetDriverId", profile.id).limit(80),
+                base.whereEqualTo("motoboyAtualOferta", profile.id).limit(80),
+                base.whereEqualTo("driverAtualOferta", profile.id).limit(80),
+                base.whereEqualTo("status", "TOCANDO").limit(80),
+                base.whereEqualTo("status", "RADAR_ATIVO").limit(80)
             )
 
             queries.forEachIndexed { index, firestoreQuery ->
@@ -1128,6 +1134,11 @@ private fun DocumentSnapshot.deliveryReleasedToDriver(collectionName: String): B
     val deliveryIsOffering = deliveryStatus in PEDIDO_OFFER_STATUSES
     val mainStatusIsDispatch = mainStatus in PEDIDO_OFFER_STATUSES
 
+    // Compatibilidade operacional:
+    // Se a Torre já colocou o pedido em BUSCANDO_ENTREGADOR/OFERTA/RADAR, o app deve tocar.
+    // Isso não libera pedido cru PENDENTE/NOVO/RECEBIDO, porque esses status não entram aqui.
+    if (explicitRelease || deliveryIsOffering || mainStatusIsDispatch) return true
+
     return storeAcceptedForDelivery() && (explicitRelease || deliveryIsOffering || mainStatusIsDispatch)
 }
 
@@ -1211,8 +1222,8 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
     val pickup = anyString("lojaEndereco", "pickup", "pickupAddress", "enderecoLoja", "nomeLoja", "lojaNome")
         .ifBlank { "Rodrigues Acai e Cia" }
     val dropoff = anyAddressString()
-    val km = anyDouble("kmTotal", "distanciaKm", "distanciaTotal", "distancia") ?: 0.0
-    val minutes = anyDouble("tempoTotalMin", "tempoMin", "tempoEstimado", "tempo") ?: 0.0
+    val km = anyDouble("kmTotal", "distanciaKm", "distanciaTotal", "distancia", "calculo.kmTotalEstimado", "calculo.kmTotal", "calculo.distanciaKm") ?: 0.0
+    val minutes = anyDouble("tempoTotalMin", "tempoMin", "tempoEstimado", "tempo", "calculo.tempoTotalMin", "calculo.tempoMin") ?: 0.0
     val pickupLat = anyCoordinate("latLoja", "lojaLat", "latitudeLoja", "pickupLat", "pickupLatitude", "coletaLat", "latColeta", "origemLat")
     val pickupLng = anyCoordinate("lngLoja", "lojaLng", "longitudeLoja", "pickupLng", "pickupLongitude", "coletaLng", "lngColeta", "origemLng", "lonLoja")
     val dropoffLat = anyCoordinate("latEntrega", "entregaLat", "clienteLat", "dropoffLat", "dropoffLatitude", "destinationLat", "destinoLat") ?: nestedCoordinate("endereco", "lat", "latitude")
