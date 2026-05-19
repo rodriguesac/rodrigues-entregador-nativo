@@ -887,7 +887,7 @@ object DriverRepository {
         val now = Timestamp.now()
         val displayCode = ride?.orderCode?.takeIf { it.isNotBlank() } ?: rideId.takeLast(4).uppercase(Locale.ROOT)
         val historyId = "${profile.id}_${collectionName}_${rideId}"
-            .replace(Regex("[^A-Za-z0-9_\-]"), "_")
+            .replace(Regex("[^A-Za-z0-9_-]"), "_")
             .take(180)
         val humanTitle = action.historyHumanLabel()
 
