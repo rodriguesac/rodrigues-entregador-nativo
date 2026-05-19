@@ -359,7 +359,7 @@ private fun DriverMainScreen(onLogout: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding())
+                .padding(innerPadding)
         ) {
             when (selectedTab) {
                 AppTab.Inicio -> HomeScreen()
