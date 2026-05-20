@@ -18,6 +18,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.rodriguesacai.entregador.data.Ride
+import com.rodriguesacai.entregador.ui.deliveryAddressVisible
 import com.rodriguesacai.entregador.ui.theme.AppColors
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
@@ -36,18 +37,21 @@ fun NativeMapPreview(ride: Ride?, modifier: Modifier = Modifier.fillMaxWidth().h
             map.getMapAsync { googleMap ->
                 val loja = LatLng(ride.lojaLat, ride.lojaLng)
                 val cliente = LatLng(ride.clienteLat, ride.clienteLng)
+                val showDelivery = ride.deliveryAddressVisible()
                 googleMap.clear()
                 googleMap.uiSettings.isZoomControlsEnabled = false
                 googleMap.uiSettings.isMapToolbarEnabled = false
                 googleMap.addMarker(MarkerOptions().position(loja).title("Coleta"))
-                googleMap.addMarker(MarkerOptions().position(cliente).title("Entrega"))
-                googleMap.addPolyline(
-                    PolylineOptions()
-                        .add(loja, cliente)
-                        .width(7f)
-                        .color(AppColors.Green.toArgb())
-                )
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loja, 14f))
+                if (showDelivery) {
+                    googleMap.addMarker(MarkerOptions().position(cliente).title("Entrega"))
+                    googleMap.addPolyline(
+                        PolylineOptions()
+                            .add(loja, cliente)
+                            .width(7f)
+                            .color(AppColors.Green.toArgb())
+                    )
+                }
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(if (showDelivery) cliente else loja, 14f))
             }
         }
     )

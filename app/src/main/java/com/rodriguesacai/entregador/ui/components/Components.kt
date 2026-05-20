@@ -22,6 +22,8 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.DeliveryDining
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.ReportProblem
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -59,9 +61,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rodriguesacai.entregador.data.Driver
 import com.rodriguesacai.entregador.data.Ride
+import com.rodriguesacai.entregador.ui.deliveryAddressVisible
 import com.rodriguesacai.entregador.ui.format1
 import com.rodriguesacai.entregador.ui.humanStatus
+import com.rodriguesacai.entregador.ui.pickupVisibleAddress
 import com.rodriguesacai.entregador.ui.money
+import com.rodriguesacai.entregador.ui.safeDeliveryAddress
+import com.rodriguesacai.entregador.ui.safeDistance
+import com.rodriguesacai.entregador.ui.safeEta
+import com.rodriguesacai.entregador.ui.safeMoney
 import com.rodriguesacai.entregador.ui.navigation.AppRoute
 import com.rodriguesacai.entregador.ui.statusColor
 import com.rodriguesacai.entregador.ui.theme.AppColors
@@ -133,6 +141,12 @@ fun AppBottomBar(current: AppRoute, onNav: (AppRoute) -> Unit) {
 
 @Composable
 fun Header(driver: Driver?, onLogout: () -> Unit) {
+    val restricted = driver?.statusOperacional == "RESTRICAO"
+    val subtitle = when {
+        restricted -> "Resolva a restrição para receber corridas"
+        driver?.online == true -> "Disponível para novas corridas"
+        else -> "Ative disponibilidade para iniciar"
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -141,11 +155,11 @@ fun Header(driver: Driver?, onLogout: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, ${driver?.nome ?: "entregador"}", color = AppColors.Ink, fontWeight = FontWeight.Black, fontSize = 23.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Pronto para receber corridas", color = AppColors.Muted, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(subtitle, color = if (restricted) AppColors.Red else AppColors.Muted, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        SmallRoundButton("!", AppColors.Green.copy(alpha = .10f), AppColors.Green) { }
+        SmallIconButton(AppColors.Green.copy(alpha = .10f), AppColors.Green, { Icon(Icons.Rounded.ReportProblem, contentDescription = "Alertas", tint = AppColors.Green, modifier = Modifier.size(22.dp)) }) { }
         Spacer(Modifier.width(8.dp))
-        SmallRoundButton("⋯", AppColors.Green.copy(alpha = .10f), AppColors.Green, onLogout)
+        SmallIconButton(AppColors.Green.copy(alpha = .10f), AppColors.Green, { Icon(Icons.Rounded.MoreVert, contentDescription = "Mais", tint = AppColors.Green, modifier = Modifier.size(23.dp)) }, onLogout)
     }
 }
 
@@ -172,11 +186,13 @@ private fun DriverAvatar(driver: Driver?) {
 }
 
 @Composable
-private fun SmallRoundButton(text: String, bg: Color, fg: Color, onClick: () -> Unit) {
+private fun SmallIconButton(bg: Color, fg: Color, icon: @Composable () -> Unit, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(48.dp).clip(CircleShape).background(bg).clickable { onClick() },
         contentAlignment = Alignment.Center
-    ) { Text(text, color = fg, fontWeight = FontWeight.Black, fontSize = 20.sp) }
+    ) {
+        Box(modifier = Modifier, contentAlignment = Alignment.Center) { icon() }
+    }
 }
 
 @Composable
@@ -191,7 +207,7 @@ fun StatusSwitch(driver: Driver?, onOnline: (Boolean) -> Unit) {
         shape = RoundedCornerShape(999.dp),
         modifier = Modifier.fillMaxWidth().height(46.dp)
     ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+        Text(text, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, maxLines = 1)
     }
 }
 
@@ -299,11 +315,11 @@ fun UrgentCard(ride: Ride, onClick: () -> Unit) {
                     Text("Nova corrida", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                     Text("Pedido ${ride.numeroPedido} • ${ride.clienteBairro}", color = Color.White.copy(alpha = .78f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text(money(ride.valorCorrida), color = AppColors.Green, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Text(safeMoney(ride.valorCorrida), color = AppColors.Green, fontWeight = FontWeight.Black, fontSize = 20.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OfferChip("${ride.distanciaKm.format1()} km")
-                OfferChip("${ride.tempoEstimadoMin} min")
+                OfferChip(safeDistance(ride.distanciaKm))
+                OfferChip(safeEta(ride.tempoEstimadoMin))
                 OfferChip("Toque para abrir")
             }
         }
@@ -317,11 +333,10 @@ private fun OfferChip(text: String) {
     ) { Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
 }
 
-private fun Ride.deliveryVisible(): Boolean = status in listOf("PEDIDO_RETIRADO", "INDO_ENTREGA", "ENTREGADOR_NO_LOCAL", "OCORRENCIA", "FINALIZADA")
 
 @Composable
 fun ActiveRideCard(ride: Ride, onOpen: () -> Unit, onMap: () -> Unit) {
-    val address = if (ride.deliveryVisible()) ride.clienteEnderecoCompleto else "Endereço completo liberado após retirar o pedido"
+    val address = ride.safeDeliveryAddress()
     Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(26.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -329,12 +344,12 @@ fun ActiveRideCard(ride: Ride, onOpen: () -> Unit, onMap: () -> Unit) {
                     Text("Pedido ${ride.numeroPedido}", color = AppColors.Ink, fontWeight = FontWeight.Black, fontSize = 19.sp)
                     Text(humanStatus(ride.status), color = statusColor(ride.status), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
-                Text(money(ride.valorCorrida), color = AppColors.Green, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                Text(safeMoney(ride.valorCorrida), color = AppColors.Green, fontWeight = FontWeight.Black, fontSize = 18.sp)
             }
             Divider(color = AppColors.Line)
-            Text("Coleta: ${ride.lojaNome}", color = AppColors.Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Coleta: ${ride.pickupVisibleAddress()}", color = AppColors.Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("Entrega: $address", color = AppColors.Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("${ride.distanciaKm.format1()} km • ${ride.tempoEstimadoMin} min • ${ride.clienteBairro}", color = AppColors.Muted, fontSize = 12.sp)
+            Text("${safeDistance(ride.distanciaKm)} • ${safeEta(ride.tempoEstimadoMin)} • ${ride.clienteBairro}", color = AppColors.Muted, fontSize = 12.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onOpen, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Abrir") }
                 OutlinedButton(onClick = onMap, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Mapa") }
@@ -355,7 +370,7 @@ fun EarningsCompact(driver: Driver?, onToggleValues: (Boolean) -> Unit) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("${driver?.corridasHoje ?: 0}", color = AppColors.Ink, fontWeight = FontWeight.Black, fontSize = 22.sp)
-                Text("finalizadas", color = AppColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("corridas hoje", color = AppColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.width(8.dp))
             Box(

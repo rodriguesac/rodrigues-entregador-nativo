@@ -31,8 +31,9 @@ import com.rodriguesacai.entregador.ui.components.DangerButton
 import com.rodriguesacai.entregador.ui.components.Field
 import com.rodriguesacai.entregador.ui.components.Metric
 import com.rodriguesacai.entregador.ui.components.PrimaryButton
-import com.rodriguesacai.entregador.ui.format1
-import com.rodriguesacai.entregador.ui.money
+import com.rodriguesacai.entregador.ui.safeDistance
+import com.rodriguesacai.entregador.ui.safeEta
+import com.rodriguesacai.entregador.ui.safeMoney
 import com.rodriguesacai.entregador.ui.theme.AppColors
 
 @Composable
@@ -54,9 +55,9 @@ fun UrgentRideScreen(
             Text("Nova corrida", color = Color.White, fontWeight = FontWeight.Black, fontSize = 32.sp)
             Text("Pedido ${ride.numeroPedido}", color = Color.White.copy(alpha = .8f), fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Metric("Valor", money(ride.valorCorrida), AppColors.Green, Modifier.weight(1f))
-                Metric("Distância", "${ride.distanciaKm.format1()} km", AppColors.Ink, Modifier.weight(1f))
-                Metric("Tempo", "${ride.tempoEstimadoMin} min", AppColors.Ink, Modifier.weight(1f))
+                Metric("Valor", safeMoney(ride.valorCorrida), AppColors.Green, Modifier.weight(1f))
+                Metric("Distância", safeDistance(ride.distanciaKm), AppColors.Ink, Modifier.weight(1f))
+                Metric("Tempo", safeEta(ride.tempoEstimadoMin), AppColors.Ink, Modifier.weight(1f))
             }
             AddressBlock("Coleta", ride.lojaNome, ride.lojaEndereco)
             AddressBlock("Entrega", ride.clienteBairro, "Endereço completo será liberado na etapa correta")

@@ -10,7 +10,7 @@ import com.rodriguesacai.entregador.ui.components.BasePage
 import com.rodriguesacai.entregador.ui.components.CardLine
 import com.rodriguesacai.entregador.ui.components.EmptyCard
 import com.rodriguesacai.entregador.ui.humanStatus
-import com.rodriguesacai.entregador.ui.money
+import com.rodriguesacai.entregador.ui.safeMoney
 import com.rodriguesacai.entregador.ui.navigation.AppRoute
 import com.rodriguesacai.entregador.ui.shortDate
 import com.rodriguesacai.entregador.ui.statusColor
@@ -24,7 +24,7 @@ fun HistoryScreen(history: List<Ride>, onBack: () -> Unit, onNav: (AppRoute) -> 
                 CardLine(
                     title = "Pedido ${ride.numeroPedido}",
                     subtitle = "${shortDate(ride.atualizadaEm ?: ride.criadaEm)} • ${humanStatus(ride.status)}",
-                    trailing = money(ride.valorCorrida),
+                    trailing = safeMoney(ride.valorCorrida),
                     color = statusColor(ride.status)
                 )
             }

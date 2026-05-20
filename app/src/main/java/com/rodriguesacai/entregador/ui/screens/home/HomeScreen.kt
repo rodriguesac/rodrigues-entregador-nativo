@@ -48,7 +48,8 @@ fun HomeScreen(
     onLogout: () -> Unit,
     onToggleValues: (Boolean) -> Unit
 ) {
-    val offer = state.activeRides.firstOrNull { it.status == "OFERTA_RECEBIDA" }
+    val restricted = state.driver?.statusOperacional == "RESTRICAO"
+    val offer = if (restricted) null else state.activeRides.firstOrNull { it.status == "OFERTA_RECEBIDA" }
     val active = state.activeRides.firstOrNull { it.status != "OFERTA_RECEBIDA" }
 
     Scaffold(
@@ -65,6 +66,7 @@ fun HomeScreen(
 
             item {
                 when {
+                    restricted -> RestrictionCard(onPermissions)
                     offer != null -> UrgentCard(offer) { onUrgent(offer) }
                     active != null -> ActiveRideCard(active, { onRide(active) }, { onNav(AppRoute.Mapa) })
                     else -> OperationCard(onPermissions)
@@ -103,6 +105,29 @@ private fun OperationCard(onOpen: () -> Unit) {
             }
             MiniMapDrawing(modifier = Modifier.fillMaxWidth().height(135.dp))
             OutlineAction("Ver permissões da operação", onOpen)
+        }
+    }
+}
+
+@Composable
+private fun RestrictionCard(onOpen: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
+        shape = RoundedCornerShape(26.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Operação com restrição", color = AppColors.Ink, fontWeight = FontWeight.Black, fontSize = 19.sp)
+                    Text("Bateria, GPS, internet ou permissões podem bloquear novas corridas.", color = AppColors.Muted, fontSize = 13.sp)
+                }
+                Box(
+                    Modifier.background(AppColors.Red.copy(alpha = .12f), RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 7.dp)
+                ) { Text("corrigir", color = AppColors.Red, fontWeight = FontWeight.Black, fontSize = 12.sp) }
+            }
+            MiniMapDrawing(modifier = Modifier.fillMaxWidth().height(125.dp))
+            OutlineAction("Abrir permissões e diagnóstico", onOpen)
         }
     }
 }

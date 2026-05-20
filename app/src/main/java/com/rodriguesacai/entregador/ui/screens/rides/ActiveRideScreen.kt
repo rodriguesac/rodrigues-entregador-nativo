@@ -14,14 +14,16 @@ import com.rodriguesacai.entregador.ui.components.Metric
 import com.rodriguesacai.entregador.ui.components.NativeMapPreview
 import com.rodriguesacai.entregador.ui.components.OutlineAction
 import com.rodriguesacai.entregador.ui.components.PrimaryButton
-import com.rodriguesacai.entregador.ui.format1
+import com.rodriguesacai.entregador.ui.deliveryAddressVisible
 import com.rodriguesacai.entregador.ui.humanStatus
-import com.rodriguesacai.entregador.ui.money
+import com.rodriguesacai.entregador.ui.pickupVisibleAddress
+import com.rodriguesacai.entregador.ui.safeDeliveryAddress
+import com.rodriguesacai.entregador.ui.safeDistance
+import com.rodriguesacai.entregador.ui.safeMoney
 import com.rodriguesacai.entregador.ui.nextActionText
 import com.rodriguesacai.entregador.ui.statusColor
 import com.rodriguesacai.entregador.ui.theme.AppColors
 
-private fun Ride.deliveryVisible(): Boolean = status in listOf("PEDIDO_RETIRADO", "INDO_ENTREGA", "ENTREGADOR_NO_LOCAL", "OCORRENCIA", "FINALIZADA")
 
 @Composable
 fun ActiveRideScreen(
@@ -36,16 +38,16 @@ fun ActiveRideScreen(
             AlertBox("Nenhuma corrida em andamento.", AppColors.Muted)
             return@BasePage
         }
-        val entregaTitulo = if (ride.deliveryVisible()) ride.clienteNome else ride.clienteBairro
-        val entregaTexto = if (ride.deliveryVisible()) ride.clienteEnderecoCompleto else "Endereço completo liberado depois da retirada."
+        val entregaTitulo = if (ride.deliveryAddressVisible()) ride.clienteNome else ride.clienteBairro
+        val entregaTexto = ride.safeDeliveryAddress()
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             NativeMapPreview(ride)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Metric("Valor", money(ride.valorCorrida), AppColors.Green, Modifier.weight(1f))
-                Metric("Distância", "${ride.distanciaKm.format1()} km", AppColors.Ink, Modifier.weight(1f))
+                Metric("Valor", safeMoney(ride.valorCorrida), AppColors.Green, Modifier.weight(1f))
+                Metric("Distância", safeDistance(ride.distanciaKm), AppColors.Ink, Modifier.weight(1f))
             }
             AlertBox(humanStatus(ride.status), statusColor(ride.status))
-            AddressBlock("Coleta", ride.lojaNome, ride.lojaEndereco)
+            AddressBlock("Coleta", ride.lojaNome, ride.pickupVisibleAddress())
             AddressBlock("Entrega", entregaTitulo, entregaTexto)
             PrimaryButton(nextActionText(ride.status)) { onAdvance(ride) }
             OutlineAction("Abrir mapa maior") { onMap() }

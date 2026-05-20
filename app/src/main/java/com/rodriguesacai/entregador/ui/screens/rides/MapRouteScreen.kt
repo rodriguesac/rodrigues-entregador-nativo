@@ -16,8 +16,9 @@ import com.rodriguesacai.entregador.ui.components.AddressBlock
 import com.rodriguesacai.entregador.ui.components.BasePage
 import com.rodriguesacai.entregador.ui.components.NativeMapPreview
 import com.rodriguesacai.entregador.ui.components.OutlineAction
-
-private fun Ride.deliveryVisible(): Boolean = status in listOf("PEDIDO_RETIRADO", "INDO_ENTREGA", "ENTREGADOR_NO_LOCAL", "OCORRENCIA", "FINALIZADA")
+import com.rodriguesacai.entregador.ui.deliveryAddressVisible
+import com.rodriguesacai.entregador.ui.pickupVisibleAddress
+import com.rodriguesacai.entregador.ui.safeDeliveryAddress
 
 @Composable
 fun MapRouteScreen(ride: Ride?, onBack: () -> Unit) {
@@ -26,9 +27,9 @@ fun MapRouteScreen(ride: Ride?, onBack: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             NativeMapPreview(ride, Modifier.fillMaxWidth().height(420.dp))
             if (ride != null) {
-                val entregaTitulo = if (ride.deliveryVisible()) ride.clienteNome else ride.clienteBairro
-                val entregaTexto = if (ride.deliveryVisible()) ride.clienteEnderecoCompleto else "Endereço completo liberado depois da retirada."
-                AddressBlock("Coleta", ride.lojaNome, ride.lojaEndereco)
+                val entregaTitulo = if (ride.deliveryAddressVisible()) ride.clienteNome else ride.clienteBairro
+                val entregaTexto = ride.safeDeliveryAddress()
+                AddressBlock("Coleta", ride.lojaNome, ride.pickupVisibleAddress())
                 AddressBlock("Entrega", entregaTitulo, entregaTexto)
             }
             OutlineAction("Iniciar navegação") { ride?.let { openNavigation(context, it) } }
@@ -37,7 +38,7 @@ fun MapRouteScreen(ride: Ride?, onBack: () -> Unit) {
 }
 
 private fun openNavigation(context: Context, ride: Ride) {
-    val goingToDelivery = ride.deliveryVisible()
+    val goingToDelivery = ride.deliveryAddressVisible()
     val lat = if (goingToDelivery) ride.clienteLat else ride.lojaLat
     val lng = if (goingToDelivery) ride.clienteLng else ride.lojaLng
     val google = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng&mode=d")).apply {
