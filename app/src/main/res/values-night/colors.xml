@@ -1,0 +1,15 @@
+<resources>
+    <!-- Mesmo em celulares com modo escuro, este app permanece no tema claro aprovado. -->
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="up_green">#16A34A</color>
+    <color name="up_green_dark">#0F7A35</color>
+    <color name="up_green_soft">#EAF8EF</color>
+    <color name="up_background">#F8FAFC</color>
+    <color name="up_surface">#FFFFFFFF</color>
+    <color name="up_text">#0F172A</color>
+    <color name="up_muted">#64748B</color>
+    <color name="up_line">#E5E7EB</color>
+    <color name="status_bar_dark">#FFFFFFFF</color>
+    <color name="accent_purple">#16A34A</color>
+</resources>
