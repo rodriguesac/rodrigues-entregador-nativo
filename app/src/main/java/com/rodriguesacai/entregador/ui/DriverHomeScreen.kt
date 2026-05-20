@@ -336,7 +336,7 @@ fun DriverHomeScreen(
                 .background(Bg)
                 .padding(inner)
         ) {
-            Column(
+            androidx.compose.foundation.layout.Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
@@ -560,7 +560,7 @@ private fun LoginScreen(
             .padding(22.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
@@ -647,7 +647,7 @@ private fun RegisterScreen(
             .background(Bg)
             .padding(20.dp)
     ) {
-        Column(
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
@@ -743,7 +743,7 @@ private fun Header(
     ) {
         DriverAvatar(profile)
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
             Text("Olá, ${profile.name.firstName()}", fontFamily = AppFont, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Text("Pronto para receber corridas", fontFamily = AppFont, color = Muted, fontSize = 13.sp)
         }
@@ -861,7 +861,7 @@ private fun NotificationsTab(notices: List<DriverNotice>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Notifications, contentDescription = null, tint = if (notice.read) Muted else Primary)
                     Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
+                    androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                         Text(notice.title, fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         if (notice.body.isNotBlank()) Text(notice.body, fontFamily = AppFont, color = Muted, fontSize = 13.sp)
                         Text("${notice.type} • ${notice.createdLabel}", fontFamily = AppFont, color = Muted, fontSize = 11.sp)
@@ -897,7 +897,7 @@ private fun MoreTab(
         Row(verticalAlignment = Alignment.CenterVertically) {
             DriverAvatar(profile)
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                 Text(profile.name, fontFamily = AppFont, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Text(if (profile.verified) "Perfil verificado" else "Perfil sem selo", fontFamily = AppFont, color = PrimaryDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 if (profile.phone.isNotBlank()) Text(profile.phone, fontFamily = AppFont, color = Muted, fontSize = 12.sp)
@@ -970,7 +970,7 @@ private fun StatusButton(operational: AvailabilityState, activeRide: DriverRide?
     ) {
         Icon(Icons.Filled.Circle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
+        androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
             Text(operational.label, fontFamily = AppFont, color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
             Text(operational.message, fontFamily = AppFont, color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -982,7 +982,7 @@ private fun StatusButton(operational: AvailabilityState, activeRide: DriverRide?
 private fun EarningsCard(stats: DriverStats, hideValues: Boolean, onToggleValues: () -> Unit) {
     CardBox {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                 Text("Ganhos de hoje", fontFamily = AppFont, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Text(if (hideValues) "R$ ••••" else DriverRepository.formatCurrency(stats.totalToday), fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 28.sp)
             }
@@ -991,7 +991,7 @@ private fun EarningsCard(stats: DriverStats, hideValues: Boolean, onToggleValues
             }
             Divider(modifier = Modifier.height(48.dp).width(1.dp), color = Border)
             Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
+            androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.End) {
                 Text("${stats.finishedCount}", fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
                 Text("Finalizadas", fontFamily = AppFont, color = Muted, fontSize = 11.sp)
                 Text("${stats.score}%", fontFamily = AppFont, color = PrimaryDark, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -1013,7 +1013,7 @@ private fun BannerCarousel(banners: List<AppBanner>) {
             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Notifications, contentDescription = null, tint = PrimaryDark)
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                     Text("Carrossel sem banners reais", fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 17.sp)
                     Text("Cadastre banners no painel gestor para aparecerem aqui.", fontFamily = AppFont, color = Muted, fontSize = 12.sp)
                 }
@@ -1038,7 +1038,7 @@ private fun BannerCarousel(banners: List<AppBanner>) {
                 .padding(20.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(color = Color.White.copy(alpha = 0.18f), shape = RoundedCornerShape(50.dp)) {
                         Text(banner.label.uppercase(Locale.ROOT), fontFamily = AppFont, color = Color.White, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
                     }
@@ -1093,7 +1093,7 @@ private fun QuickAction(icon: ImageVector, title: String, subtitle: String, modi
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(24.dp))
             Text(title, fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
             Text(subtitle, fontFamily = AppFont, color = Muted, fontSize = 11.sp)
@@ -1111,7 +1111,7 @@ private fun PendingRideCard(ride: DriverRide, onAccept: () -> Unit, onReject: ()
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = PrimarySoft, shape = RoundedCornerShape(50.dp)) {
                     Text("NOVA CORRIDA", fontFamily = AppFont, color = PrimaryDark, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
@@ -1155,7 +1155,7 @@ private fun CompactActiveRide(ride: DriverRide, onOpen: () -> Unit) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Route, contentDescription = null, tint = Primary)
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                 Text("Corrida em andamento", fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black)
                 Text("Pedido ${ride.orderCode} • ${ride.status.humanStatus(ride.rawStatus)}", fontFamily = AppFont, color = Muted, fontSize = 12.sp)
             }
@@ -1173,7 +1173,7 @@ private fun ActiveRideDetails(
 ) {
     CardBox {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                 Text("Pedido ${ride.orderCode}", fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 22.sp)
                 Text(ride.status.humanStatus(ride.rawStatus), fontFamily = AppFont, color = PrimaryDark, fontWeight = FontWeight.Bold)
             }
@@ -1230,7 +1230,7 @@ private fun OccurrenceSelector(onOccurrence: (String) -> Unit) {
         Text("Registrar ocorrência no local", fontFamily = AppFont, color = Warning, fontWeight = FontWeight.Bold)
     }
     if (expanded) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             reasons.forEach { reason ->
                 Surface(
                     modifier = Modifier.fillMaxWidth().clickable { expanded = false; onOccurrence(reason) },
@@ -1285,7 +1285,7 @@ private fun BottomNavigation(selected: AppTab, unread: Int, onSelect: (AppTab) -
 
 @Composable
 private fun BottomItem(selected: AppTab, tab: AppTab, icon: ImageVector, label: String, badge: Int, onSelect: (AppTab) -> Unit) {
-    NavigationBarItem(
+    androidx.compose.material3.NavigationBarItem(
         selected = selected == tab,
         onClick = { onSelect(tab) },
         icon = {
@@ -1307,7 +1307,7 @@ private fun BottomItem(selected: AppTab, tab: AppTab, icon: ImageVector, label: 
 
 @Composable
 private fun LogoBlock() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+    androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .size(82.dp)
@@ -1377,13 +1377,13 @@ private fun CardBox(content: @Composable Column.() -> Unit) {
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        androidx.compose.foundation.layout.Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 
 @Composable
 private fun SectionTitle(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 24.sp)
         Text(subtitle, fontFamily = AppFont, color = Muted, fontSize = 12.sp)
     }
@@ -1471,7 +1471,7 @@ private fun MiniMetric(title: String, value: String, modifier: Modifier = Modifi
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
             Text(title, fontFamily = AppFont, color = Muted, fontSize = 12.sp)
             Text(value, fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
         }
@@ -1484,7 +1484,7 @@ private fun HistoryCard(item: DriverHistory) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.History, contentDescription = null, tint = Primary)
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                 Text("Pedido ${item.rideId}", fontFamily = AppFont, color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
                 Text(item.action.humanHistory(), fontFamily = AppFont, color = Muted, fontSize = 12.sp)
                 Text(item.createdLabel, fontFamily = AppFont, color = Muted, fontSize = 11.sp)
