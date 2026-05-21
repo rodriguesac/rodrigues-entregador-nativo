@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
@@ -68,13 +70,15 @@ val UpShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
-private val AppFont = FontFamily.SansSerif
+val UpAppFont = FontFamily.SansSerif
+private val AppFont = UpAppFont
 private fun style(size: Int, weight: FontWeight, line: Int = (size * 1.25f).toInt()) = TextStyle(
     fontFamily = AppFont,
     fontSize = size.sp,
     lineHeight = line.sp,
     fontWeight = weight,
-    color = UpColors.Ink
+    color = UpColors.Ink,
+    platformStyle = PlatformTextStyle(includeFontPadding = false)
 )
 
 val UpTypography = Typography(
@@ -116,9 +120,12 @@ fun UpTheme(content: @Composable () -> Unit) {
         MaterialTheme(
             colorScheme = UpScheme,
             typography = UpTypography,
-            shapes = UpShapes,
-            content = content
-        )
+            shapes = UpShapes
+        ) {
+            ProvideTextStyle(value = UpTypography.bodyMedium) {
+                content()
+            }
+        }
     }
 }
 

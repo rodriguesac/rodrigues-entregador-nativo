@@ -103,7 +103,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -128,6 +127,7 @@ import com.rodriguesacai.entregador.ui.safeEta
 import com.rodriguesacai.entregador.ui.safeMoney
 import com.rodriguesacai.entregador.ui.shortDate
 import com.rodriguesacai.entregador.ui.statusColor
+import com.rodriguesacai.entregador.ui.design.UpAppFont
 import com.rodriguesacai.entregador.ui.design.UpBorders
 import com.rodriguesacai.entregador.ui.design.UpColors
 import com.rodriguesacai.entregador.ui.design.UpDimens
@@ -266,12 +266,12 @@ fun FormField(
             modifier = Modifier.fillMaxWidth(),
             leadingIcon = if (icon != null) ({ Icon(icon, contentDescription = null, tint = UpColors.Muted, modifier = Modifier.size(18.dp)) }) else null,
             trailingIcon = trailingIcon ?: if (password) ({ IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Mostrar senha", tint = UpColors.Muted) } }) else null,
-            placeholder = { Text(label, color = UpColors.Subtle, fontSize = 13.sp, fontFamily = FontFamily.SansSerif, maxLines = 1) },
+            placeholder = { Text(label, color = UpColors.Subtle, fontSize = 13.sp, fontFamily = UpAppFont, maxLines = 1) },
             singleLine = minLines == 1,
             minLines = minLines,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 18.sp, fontFamily = FontFamily.SansSerif),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 18.sp, fontFamily = UpAppFont),
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = UpColors.Surface,

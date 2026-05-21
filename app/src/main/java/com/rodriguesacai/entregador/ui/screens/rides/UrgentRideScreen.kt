@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeliveryDining
 import androidx.compose.material.icons.rounded.Timer
+import com.rodriguesacai.entregador.ui.theme.RodriguesTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,6 +59,71 @@ fun UrgentRideScreen(ride: Ride?, onBack: () -> Unit, onAccept: (String) -> Unit
             Spacer(Modifier.weight(1f))
             PrimaryAction("Aceitar", onClick = { onAccept(ride.id) })
             SecondaryAction("Recusar", onClick = { onReject(ride.id, "Recusada pelo entregador") }, red = true)
+        }
+    }
+}
+
+
+@Composable
+fun UrgentRideStandaloneScreen(
+    rideId: String,
+    title: String,
+    body: String,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onClose: () -> Unit
+) {
+    RodriguesTheme {
+        Column(Modifier.fillMaxSize().background(UpColors.Screen)) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .background(UpColors.Red)
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("⚠", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp, maxLines = 1)
+                        if (rideId.isNotBlank()) {
+                            Text("Corrida #$rideId", color = Color.White.copy(alpha = .82f), fontSize = 12.sp, maxLines = 1)
+                        }
+                    }
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = Color.White)
+                    }
+                }
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(Modifier.height(8.dp))
+                UpInfoBox(
+                    title = "Oferta urgente",
+                    message = body.ifBlank { "Abra o app para ver os dados reais da corrida." },
+                    icon = Icons.Rounded.DeliveryDining,
+                    tint = UpColors.Red,
+                    soft = UpColors.RedSoft
+                )
+                Text(
+                    text = "Os detalhes completos serão carregados do Firebase ao abrir a corrida no app.",
+                    color = UpColors.Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 10.dp)
+                )
+                Spacer(Modifier.weight(1f))
+                PrimaryAction("Aceitar corrida", onClick = onAccept)
+                SecondaryAction("Recusar", onClick = onReject, red = true)
+            }
         }
     }
 }
