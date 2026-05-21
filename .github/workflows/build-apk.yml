@@ -1,0 +1,58 @@
+name: Build APK Rodrigues Entregador V17
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Gerar APK V17 Compose Material
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Garantir permissao do Gradle Wrapper
+        run: chmod +x ./gradlew
+
+      - name: Mostrar versao do app e workflows ativos
+        run: |
+          echo "Commit: $GITHUB_SHA"
+          echo "Arquivos de workflow:"
+          find .github/workflows -maxdepth 1 -type f -print || true
+          echo "Versao declarada no Gradle:"
+          grep -n "versionCode\|versionName" app/build.gradle.kts
+
+      - name: Baixar fonte Montserrat antes do build
+        run: |
+          mkdir -p app/src/main/res/font
+          curl -L -o app/src/main/res/font/montserrat_regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Regular.ttf
+          curl -L -o app/src/main/res/font/montserrat_medium.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Medium.ttf
+          curl -L -o app/src/main/res/font/montserrat_semibold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-SemiBold.ttf
+          curl -L -o app/src/main/res/font/montserrat_bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Bold.ttf
+          curl -L -o app/src/main/res/font/montserrat_extrabold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf
+          curl -L -o app/src/main/res/font/montserrat_black.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Black.ttf
+          ls -lh app/src/main/res/font
+
+      - name: Build Debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Conferir APK gerado
+        run: |
+          mkdir -p build-artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/Rodrigues-Entregador-V17-Compose-Material-debug.apk
+          ls -lh build-artifacts
+
+      - name: Upload APK V17
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rodrigues-Entregador-V17-APK-COMPOSE-MATERIAL
+          path: build-artifacts/Rodrigues-Entregador-V17-Compose-Material-debug.apk
+          if-no-files-found: error

@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Rodrigues Entregador</string>
-    <string name="app_version_label">V16</string>
+    <string name="app_version_label">V17 Compose Material</string>
 </resources>

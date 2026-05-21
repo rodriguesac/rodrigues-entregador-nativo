@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.rodriguesacai.entregador.data.Ride
-import com.rodriguesacai.entregador.ui.components.ActiveRidePanel
+import com.rodriguesacai.entregador.ui.components.V17ActiveRidePanel
 import com.rodriguesacai.entregador.ui.components.EmptyState
 import com.rodriguesacai.entregador.ui.components.UpPage
 import com.rodriguesacai.entregador.ui.navigation.AppRoute
@@ -22,7 +22,7 @@ fun ActiveRideScreen(ride: Ride?, onBack: () -> Unit, onMap: () -> Unit, onAdvan
             if (ride == null) {
                 EmptyState("Nenhuma corrida em andamento", "Quando uma corrida for aceita, as etapas de coleta e entrega aparecem aqui.", Icons.Rounded.DeliveryDining, "Voltar", onBack)
             } else {
-                ActiveRidePanel(ride = ride, onMap = onMap, onAdvance = { onAdvance(ride) }, onOccurrence = { onOccurrence(ride) })
+                V17ActiveRidePanel(ride = ride, onMap = onMap, onAdvance = { onAdvance(ride) }, onOccurrence = { onOccurrence(ride) })
             }
         }
     }

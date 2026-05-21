@@ -27,13 +27,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rodriguesacai.entregador.ui.components.AuthCard
-import com.rodriguesacai.entregador.ui.components.AppVersionChip
+import com.rodriguesacai.entregador.ui.components.V17AuthFooterIllustration
+import com.rodriguesacai.entregador.ui.components.V17LoginHero
+import com.rodriguesacai.entregador.ui.components.V17VersionBadge
 import com.rodriguesacai.entregador.ui.components.FormField
-import com.rodriguesacai.entregador.ui.components.LoginMotoIllustration
 import com.rodriguesacai.entregador.ui.components.PrimaryAction
 import com.rodriguesacai.entregador.ui.components.SecondaryAction
 import com.rodriguesacai.entregador.ui.components.UpInfoBox
-import com.rodriguesacai.entregador.ui.components.UpLogo
 import com.rodriguesacai.entregador.ui.design.UpColors
 
 @Composable
@@ -47,12 +47,9 @@ fun LoginScreen(
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     AuthCard {
-        Spacer(Modifier.height(8.dp))
-        UpLogo()
-        AppVersionChip()
-        Spacer(Modifier.height(10.dp))
-        Text("Bem-vindo(a)!", color = UpColors.Ink, fontSize = 27.sp, fontWeight = FontWeight.Black)
-        Text("Acesse sua conta para continuar fazendo entregas com a Up.", color = UpColors.Text, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 20.sp)
+        Spacer(Modifier.height(6.dp))
+        V17LoginHero()
+        V17VersionBadge()
         Spacer(Modifier.height(8.dp))
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             FormField(identifier, { identifier = it }, "CPF ou telefone", Icons.Rounded.Person, KeyboardType.Number)
@@ -65,6 +62,6 @@ fun LoginScreen(
         androidx.compose.material3.TextButton(onClick = onCriarSenha) {
             Text("Esqueci minha senha", color = UpColors.Green, fontWeight = FontWeight.Bold)
         }
-        LoginMotoIllustration(Modifier.fillMaxWidth().heightIn(min = 135.dp, max = 180.dp).padding(top = 8.dp))
+        V17AuthFooterIllustration(Modifier.fillMaxWidth().heightIn(min = 125.dp, max = 170.dp).padding(top = 6.dp))
     }
 }

@@ -15,8 +15,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "16.0.0-v16-icones-ui-padrao"
+        versionCode = 17
+        versionName = "17.0.0-v17-compose-material-polido"
         manifestPlaceholders["MAPS_API_KEY"] = "AIzaSyBkCcdbR8Z9V9DB0wAJfC_YiRaNe8nnaA4"
     }
 
