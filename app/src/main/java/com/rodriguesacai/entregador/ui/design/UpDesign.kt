@@ -80,7 +80,7 @@ val UpAppFont = FontFamily(
     Font(R.font.montserrat_extrabold, FontWeight.ExtraBold),
     Font(R.font.montserrat_black, FontWeight.Black)
 )
-private val AppFont = UpAppFont
+private val AppFont = UpAppFont // V11: fonte garantida no APK pelo GitHub Actions antes do build
 private fun style(size: Int, weight: FontWeight, line: Int = (size * 1.25f).toInt()) = TextStyle(
     fontFamily = AppFont,
     fontSize = size.sp,

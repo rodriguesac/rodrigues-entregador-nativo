@@ -28,12 +28,25 @@ jobs:
       - name: Conferir google-services.json
         run: test -f app/google-services.json
 
+      - name: Baixar fontes Montserrat antes do build
+        shell: bash
+        run: |
+          set -e
+          mkdir -p app/src/main/res/font
+          curl -L --fail -o app/src/main/res/font/montserrat_regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Regular.ttf
+          curl -L --fail -o app/src/main/res/font/montserrat_medium.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Medium.ttf
+          curl -L --fail -o app/src/main/res/font/montserrat_semibold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-SemiBold.ttf
+          curl -L --fail -o app/src/main/res/font/montserrat_bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Bold.ttf
+          curl -L --fail -o app/src/main/res/font/montserrat_extrabold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf
+          curl -L --fail -o app/src/main/res/font/montserrat_black.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Black.ttf
+          ls -lh app/src/main/res/font
+
       - name: Gerar APK debug
         run: gradle --no-daemon clean :app:assembleDebug --stacktrace
 
       - name: Enviar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: Rodrigues-Entregador-Nativo-V10-Fonte-Embarcada
+          name: Rodrigues-Entregador-Nativo-V11-Fonte-Garantida
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
