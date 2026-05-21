@@ -30,7 +30,7 @@ object DriverRepository {
     private const val REAL_DRIVER_COLLECTION = "entregadores"
     private val DRIVER_COLLECTIONS = listOf("entregadores", "drivers", "motoboys", "deliveryDrivers", "couriers")
     private val MISSION_COLLECTIONS = listOf("rotas_entrega", "pedidos", "rides")
-    private val CAROUSEL_COLLECTIONS = listOf("carrosselApp", "bannersApp", "appBanners", "bannersEntregador", "carrossel_entregador", "entregadorBanners")
+    private val CAROUSEL_COLLECTIONS = listOf("app_carousel_banners", "carrosselApp", "bannersApp", "appBanners", "bannersEntregador", "carrossel_entregador", "entregadorBanners")
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
@@ -979,7 +979,7 @@ object DriverRepository {
             title = title,
             badge = anyString("badge", "selo", "tag", "categoria").ifBlank { "AVISO" },
             description = anyString("description", "descricao", "descrição", "subtitle", "subtitulo", "texto", "mensagem"),
-            buttonText = anyString("buttonText", "textoBotao", "textoBotão", "cta", "callToAction").ifBlank { "Saiba mais" },
+            buttonText = anyString("buttonText", "ctaText", "textoBotao", "textoBotão", "cta", "callToAction").ifBlank { "Saiba mais" },
             imageUrl = anyString("imageUrl", "imagemUrl", "urlImagem", "image", "imagem", "bannerUrl", "fotoUrl"),
             active = active,
             order = anyDouble("order", "ordem", "position", "posicao", "posição")?.toInt() ?: 999,
