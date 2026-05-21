@@ -137,7 +137,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "6.2.0",
+            "appVersion" to "6.3.0",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -180,7 +180,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "6.2.0"
+                "appVersion" to "6.3.0"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -220,7 +220,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "6.2.0"
+                "appVersion" to "6.3.0"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -259,7 +259,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "6.2.0",
+                "appVersion" to "6.3.0",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -361,7 +361,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "6.2.0"
+                "appVersion" to "6.3.0"
             ),
             SetOptions.merge()
         )
@@ -383,7 +383,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "6.2.0"
+            "appVersion" to "6.3.0"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
@@ -567,7 +567,14 @@ object DriverRepository {
                                 action = action,
                                 value = formatCurrency(valueNumberFromDoc(doc)),
                                 createdAtMillis = date?.time ?: 0L,
-                                createdLabel = date?.formatHistoryLabel().orEmpty().ifBlank { "Agora" }
+                                createdLabel = date?.formatHistoryLabel().orEmpty().ifBlank { "Agora" },
+                                pickup = doc.anyString("loja.nome", "storeName", "nomeLoja", "coleta", "pickup", "pickupAddress", "enderecoColeta", "origem"),
+                                dropoff = doc.anyString("cliente.endereco", "enderecoEntrega", "deliveryAddress", "dropoff", "dropoffAddress", "destino"),
+                                neighborhood = doc.anyString("bairro", "bairroEntrega", "cliente.bairro", "deliveryNeighborhood", "regiaoEntrega"),
+                                distance = doc.anyString("distancia", "distance", "distanciaKm", "km"),
+                                duration = doc.anyString("tempo", "duration", "tempoEstimado", "estimatedDuration"),
+                                reason = doc.anyString("motivo", "reason", "motivoRecusa", "motivoOcorrencia", "observacao", "descricao"),
+                                paymentMethod = doc.anyString("pagamento", "paymentMethod", "formaPagamento", "payment")
                             )
                         }.getOrNull()
                     }
@@ -1194,7 +1201,14 @@ data class DriverHistory(
     val action: String,
     val value: String,
     val createdAtMillis: Long,
-    val createdLabel: String
+    val createdLabel: String,
+    val pickup: String = "",
+    val dropoff: String = "",
+    val neighborhood: String = "",
+    val distance: String = "",
+    val duration: String = "",
+    val reason: String = "",
+    val paymentMethod: String = ""
 )
 
 data class AppCarouselBanner(

@@ -97,6 +97,16 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.TwoWheeler
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Place
 import coil.compose.AsyncImage
 import com.rodriguesacai.entregador.AppSettings
 import com.rodriguesacai.entregador.PermissionStatusReader
@@ -1351,7 +1361,7 @@ private fun RideFinancialPanel(ride: DriverRide, compact: Boolean) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Financeiro da corrida", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Financeiro da corrida", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
                     Text("Valor do app = repasse frota/piloto", color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
                 }
                 StatusPill(ride.paymentMethod.ifBlank { "Pagamento" }.take(12), true)
@@ -1389,16 +1399,74 @@ private fun RidesContent(
     onUpdateRide: (DriverRide, String) -> Unit,
     onOpenNavigator: (pickup: String, dropoff: String) -> Unit
 ) {
+    val stateTitle = when {
+        activeRide != null -> "Corrida em andamento"
+        pendingRide != null && online -> "Oferta recebida"
+        online -> "Aguardando corrida"
+        else -> "Sem operação ativa"
+    }
+    val stateMessage = when {
+        activeRide != null -> "Esta aba mostra só a corrida atual e as próximas ações."
+        pendingRide != null && online -> "Aceite ou recuse antes do tempo expirar."
+        online -> "As próximas ofertas da operação aparecerão aqui."
+        else -> "Fique disponível na Home para receber corridas."
+    }
+    val stateColor = when {
+        pendingRide != null && online -> Danger
+        activeRide != null -> Lime
+        online -> LimeDark
+        else -> Muted2
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         GlassCard(padding = 18) {
-            Text("Corridas", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-            Text("Oferta recebida, rota ativa e operação em andamento.", color = Muted, fontSize = 14.sp, fontFamily = AppFont)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(50.dp).clip(CircleShape).background(stateColor.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                    Icon(if (activeRide != null) Icons.Filled.Route else Icons.Filled.TwoWheeler, contentDescription = null, tint = stateColor, modifier = Modifier.size(25.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Corridas", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text(stateTitle, color = stateColor, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
+                StatusPill(if (activeRide != null) "Ativa" else if (pendingRide != null && online) "Nova" else if (online) "Livre" else "Off", online || activeRide != null)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(stateMessage, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
         }
+
         when {
-            activeRide != null -> ActiveRideCard(activeRide, onOpenNavigator, onUpdateRide)
+            activeRide != null -> {
+                ActiveRideCard(activeRide, onOpenNavigator, onUpdateRide)
+                GlassCard(padding = 14) {
+                    Text("Ao finalizar, a corrida sai daqui e aparece no Histórico.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+            }
             pendingRide != null && online -> IncomingRideCard(pendingRide, onAccept, onReject, onExpire)
-            online -> WaitingCard(OperationalStatus(AvailabilityKind.Disponivel, "Disponível", "Disponível para receber pedidos", Lime, Color(0xFF10200A), true))
-            else -> OfflineCard(OperationalStatus(AvailabilityKind.Indisponivel, "Indisponível", "Fique disponível para receber corridas", Color(0xFF232129), Ink, true))
+            online -> {
+                WaitingCard(OperationalStatus(AvailabilityKind.Disponivel, "Disponível", "Disponível para receber pedidos", Lime, Color(0xFF10200A), true))
+                RidesEmptyGuide("Você está livre", "Mantenha localização, internet e bateria liberadas para não perder a próxima oferta.")
+            }
+            else -> {
+                OfflineCard(OperationalStatus(AvailabilityKind.Indisponivel, "Indisponível", "Fique disponível para receber corridas", Color(0xFF232129), Ink, true))
+                RidesEmptyGuide("Nenhuma corrida em andamento", "A aba Corridas é o atalho para oferta, rota ativa, etapas da entrega e ocorrência.")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RidesEmptyGuide(title: String, message: String) {
+    GlassCard(padding = 18) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(Color(0xFFEAF7EE)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Lime, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(message, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            }
         }
     }
 }
@@ -1458,20 +1526,52 @@ private fun MoneyText(value: String, visible: Boolean, fontSize: Int) {
 
 @Composable
 private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = false) {
+    var filter by remember { mutableStateOf("Todas") }
+    var expandedId by remember { mutableStateOf<String?>(null) }
+    val ordered = remember(history) { history.sortedByDescending { it.createdAtMillis } }
+    val finalizadas = ordered.count { it.historyKind() == "Finalizada" }
+    val recusadas = ordered.count { it.historyKind() == "Recusada" }
+    val expiradas = ordered.count { it.historyKind() == "Expirada" }
+    val filtered = when (filter) {
+        "Finalizadas" -> ordered.filter { it.historyKind() == "Finalizada" }
+        "Recusadas" -> ordered.filter { it.historyKind() == "Recusada" }
+        "Expiradas" -> ordered.filter { it.historyKind() == "Expirada" }
+        else -> ordered
+    }
+
     Column(
         modifier = if (embedded) Modifier.fillMaxWidth() else Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        GlassCard(padding = 16) {
-            Text("Histórico de corridas", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text("Uma linha por corrida, com o status atual.", color = Muted, fontSize = 14.sp)
-            Spacer(Modifier.height(12.dp))
-            if (history.isEmpty()) {
-                EmptyState("Nenhuma corrida ainda", "Aceitas, recusadas, expiradas e finalizadas aparecerão aqui.")
-            } else {
-                history.take(30).forEachIndexed { index, item ->
-                    HistoryRow(item)
-                    if (index != history.take(30).lastIndex) Divider(color = Color.White.copy(alpha = 0.08f))
+        if (!embedded) {
+            HistoryHero(total = ordered.size, finalizadas = finalizadas, recusadas = recusadas, expiradas = expiradas)
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Últimas corridas", color = Ink, fontSize = 21.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Resumo recente para conferência rápida.", color = Muted, fontSize = 13.sp, fontFamily = AppFont)
+                }
+                Icon(Icons.Filled.History, contentDescription = null, tint = Lime)
+            }
+        }
+
+        HistoryFilters(selected = filter, onSelected = { filter = it })
+
+        if (filtered.isEmpty()) {
+            GlassCard(padding = 22) {
+                EmptyState(
+                    title = if (history.isEmpty()) "Nenhuma corrida ainda" else "Nada em ${filter.lowercase(Locale.ROOT)}",
+                    subtitle = if (history.isEmpty()) "Aceitas, recusadas, expiradas e finalizadas aparecerão aqui." else "Troque o filtro para ver outros registros."
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                filtered.take(if (embedded) 5 else 80).forEach { item ->
+                    HistoryRideCard(
+                        item = item,
+                        expanded = expandedId == item.id,
+                        onClick = { expandedId = if (expandedId == item.id) null else item.id }
+                    )
                 }
             }
         }
@@ -1479,14 +1579,151 @@ private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = fal
 }
 
 @Composable
-private fun HistoryRow(item: DriverHistory) {
-    val negative = item.action.contains("REJEIT", true) || item.action.contains("EXPIR", true)
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("Pedido #${item.rideId}", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
-            Text("${item.action.statusLabel()} • ${item.createdLabel}", color = Muted2, fontSize = 12.sp)
+private fun HistoryHero(total: Int, finalizadas: Int, recusadas: Int, expiradas: Int) {
+    GlassCard(padding = 18) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Histórico", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Uma corrida por card. Toque para ver detalhes.", color = Muted, fontSize = 13.sp, fontFamily = AppFont)
+            }
+            Box(Modifier.size(46.dp).clip(CircleShape).background(Color(0xFFEAF7EE)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.FilterList, contentDescription = null, tint = Lime)
+            }
         }
-        Text(item.value.ifBlank { "—" }, color = if (negative) Muted2 else Lime, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryMetric("Total", total.toString(), Lime, Modifier.weight(1f))
+            HistoryMetric("Finalizadas", finalizadas.toString(), LimeDark, Modifier.weight(1f))
+            HistoryMetric("Ocorrências", (recusadas + expiradas).toString(), Warning, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun HistoryMetric(label: String, value: String, color: Color, modifier: Modifier) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFF6F8F3))
+            .border(1.dp, Color(0xFFE6EBE2), RoundedCornerShape(18.dp))
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(label, color = Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, color = color, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+        }
+    }
+}
+
+@Composable
+private fun HistoryFilters(selected: String, onSelected: (String) -> Unit) {
+    val options = listOf("Todas", "Finalizadas", "Recusadas", "Expiradas")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            TinyChip(option, selected == option, Modifier.weight(1f)) { onSelected(option) }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRideCard(item: DriverHistory, expanded: Boolean, onClick: () -> Unit) {
+    val kind = item.historyKind()
+    val accent = item.historyAccent()
+    val bg = when (kind) {
+        "Recusada" -> Color(0xFFFFF1F2)
+        "Expirada" -> Color(0xFFF3F4F6)
+        "Ocorrência" -> Color(0xFFFFF7E8)
+        else -> Color(0xFFEAF8EE)
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(26.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFE5EAE4), RoundedCornerShape(26.dp))
+            .clickable { onClick() }
+    ) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(50.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+                    Icon(item.historyIcon(), contentDescription = null, tint = accent, modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("#${item.rideId}", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(8.dp))
+                        StatusPill(kind, kind == "Finalizada" || kind == "Aceita", Modifier)
+                    }
+                    Text(item.createdLabel.ifBlank { "Agora" }, color = Muted2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(item.value.ifBlank { "—" }, color = if (kind == "Recusada" || kind == "Expirada") Muted2 else LimeDark, fontWeight = FontWeight.Black, fontSize = 17.sp, fontFamily = AppFont)
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Muted2, modifier = Modifier.size(22.dp))
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val routeText = item.routeSummary()
+                if (routeText.isNotBlank()) {
+                    HistoryInlineInfo(Icons.Filled.Route, routeText, Modifier.weight(1f))
+                }
+                val timeText = listOf(item.distance, item.duration).filter { it.isNotBlank() }.joinToString(" • ")
+                if (timeText.isNotBlank()) {
+                    HistoryInlineInfo(Icons.Filled.Schedule, timeText, Modifier.weight(1f))
+                }
+            }
+
+            if (item.reason.isNotBlank()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (kind == "Finalizada") Color(0xFFF5F7F2) else Color(0xFFFFF7E8))
+                        .padding(12.dp)
+                ) {
+                    Text(item.reason.take(95), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            if (expanded) {
+                Divider(color = Color(0xFFE9EEE6))
+                HistoryDetailLine("Coleta", item.pickup.ifBlank { "Rodrigues Açaí e Cia" }, Lime)
+                HistoryDetailLine("Entrega", item.dropoff.ifBlank { item.neighborhood.ifBlank { "Endereço não informado" } }, Purple2)
+                if (item.paymentMethod.isNotBlank()) HistoryDetailLine("Pagamento", item.paymentMethod, Blue)
+                Text("Registro operacional salvo no histórico. A linha do tempo completa deve ficar no detalhe da corrida quando disponível.", color = Muted2, fontSize = 11.sp, fontFamily = AppFont)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryInlineInfo(icon: ImageVector, text: String, modifier: Modifier) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(15.dp))
+            .background(Color(0xFFF6F8F3))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Lime, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun HistoryDetailLine(label: String, value: String, color: Color) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(color.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Circle, contentDescription = null, tint = color, modifier = Modifier.size(9.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label.uppercase(Locale.ROOT), color = color, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(value, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -2126,6 +2363,43 @@ private fun Context.isLocationEnabled(): Boolean {
         val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         manager.isProviderEnabled(LocationManager.GPS_PROVIDER) || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }.getOrDefault(false)
+}
+
+private fun DriverHistory.historyKind(): String = when {
+    action.contains("REJEIT", true) || action.contains("RECUS", true) || action.contains("CANCEL", true) || action.equals("OUTRO", true) -> "Recusada"
+    action.contains("EXPIR", true) || action.contains("TIMEOUT", true) -> "Expirada"
+    action.contains("OCOR", true) || action.contains("PROBLEM", true) || action.contains("PROBLEMA", true) -> "Ocorrência"
+    action.contains("CONCL", true) || action.contains("ENTREG", true) || action.contains("FINALIZ", true) || action.equals("finished", true) -> "Finalizada"
+    action.contains("ACEIT", true) || action.equals("accepted", true) || action.contains("COLETA", true) || action.contains("ROTA", true) -> "Aceita"
+    else -> action.statusLabel()
+}
+
+private fun DriverHistory.historyAccent(): Color = when (historyKind()) {
+    "Finalizada" -> Lime
+    "Aceita" -> LimeDark
+    "Recusada" -> Danger
+    "Expirada" -> Muted2
+    "Ocorrência" -> Warning
+    else -> Muted
+}
+
+private fun DriverHistory.historyIcon(): ImageVector = when (historyKind()) {
+    "Finalizada" -> Icons.Filled.CheckCircle
+    "Aceita" -> Icons.Filled.TwoWheeler
+    "Recusada" -> Icons.Filled.Cancel
+    "Expirada" -> Icons.Filled.Schedule
+    "Ocorrência" -> Icons.Filled.ErrorOutline
+    else -> Icons.Filled.ReceiptLong
+}
+
+private fun DriverHistory.routeSummary(): String {
+    val to = neighborhood.ifBlank { dropoff }
+    return when {
+        pickup.isNotBlank() && to.isNotBlank() -> "${pickup.take(18)} → ${to.take(18)}"
+        to.isNotBlank() -> to
+        pickup.isNotBlank() -> pickup
+        else -> ""
+    }
 }
 
 private fun String.statusLabel(): String = when {
