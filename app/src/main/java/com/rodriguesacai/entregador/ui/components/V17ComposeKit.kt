@@ -659,7 +659,7 @@ fun V17VersionBadge() {
     ) {
         Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = UpColors.Green, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(5.dp))
-        Text("V17 UI Compose", color = UpColors.Green, fontFamily = UpAppFont, fontWeight = FontWeight.Black, fontSize = 10.sp)
+        Text("V18 UI Gradle Nuvem", color = UpColors.Green, fontFamily = UpAppFont, fontWeight = FontWeight.Black, fontSize = 10.sp)
     }
 }
 

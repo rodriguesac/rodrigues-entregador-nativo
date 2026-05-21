@@ -15,8 +15,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "17.0.0-v17-compose-material-polido"
+        versionCode = 180
+        versionName = "18.0.0-v18-gradle-nuvem-ui-polida"
         manifestPlaceholders["MAPS_API_KEY"] = "AIzaSyBkCcdbR8Z9V9DB0wAJfC_YiRaNe8nnaA4"
     }
 

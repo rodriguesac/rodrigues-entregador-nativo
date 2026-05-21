@@ -1,4 +1,4 @@
-name: Build APK Rodrigues Entregador V17
+name: Build APK Rodrigues Entregador V18
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Gerar APK V17 Compose Material
+    name: Gerar APK V18 sem Gradle Wrapper
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,40 +19,45 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Garantir permissao do Gradle Wrapper
-        run: chmod +x ./gradlew
+      - name: Setup Gradle na nuvem
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14'
 
-      - name: Mostrar versao do app e workflows ativos
+      - name: Conferir estrutura e versao
         run: |
           echo "Commit: $GITHUB_SHA"
-          echo "Arquivos de workflow:"
-          find .github/workflows -maxdepth 1 -type f -print || true
-          echo "Versao declarada no Gradle:"
-          grep -n "versionCode\|versionName" app/build.gradle.kts
+          echo "Workflows ativos:" && find .github/workflows -maxdepth 1 -type f -print || true
+          echo "Gradle instalado:" && gradle --version
+          echo "Versao declarada no Gradle:" && grep -n "versionCode\|versionName" app/build.gradle.kts
+          echo "Arquivos da raiz:" && ls -la
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -d app
 
-      - name: Baixar fonte Montserrat antes do build
+      - name: Garantir fonte Montserrat antes do build
         run: |
           mkdir -p app/src/main/res/font
-          curl -L -o app/src/main/res/font/montserrat_regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Regular.ttf
-          curl -L -o app/src/main/res/font/montserrat_medium.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Medium.ttf
-          curl -L -o app/src/main/res/font/montserrat_semibold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-SemiBold.ttf
-          curl -L -o app/src/main/res/font/montserrat_bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Bold.ttf
-          curl -L -o app/src/main/res/font/montserrat_extrabold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf
-          curl -L -o app/src/main/res/font/montserrat_black.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Black.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Regular.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_medium.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Medium.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_semibold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-SemiBold.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Bold.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_extrabold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf
+          curl -L --retry 3 -o app/src/main/res/font/montserrat_black.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-Black.ttf
           ls -lh app/src/main/res/font
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: gradle --no-daemon clean :app:assembleDebug --rerun-tasks --stacktrace
 
-      - name: Conferir APK gerado
+      - name: Preparar APK com nome unico V18
         run: |
           mkdir -p build-artifacts
-          cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/Rodrigues-Entregador-V17-Compose-Material-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/Rodrigues-Entregador-V18-Gradle-Nuvem-UI-Polida-debug.apk
           ls -lh build-artifacts
 
-      - name: Upload APK V17
+      - name: Upload APK V18
         uses: actions/upload-artifact@v4
         with:
-          name: Rodrigues-Entregador-V17-APK-COMPOSE-MATERIAL
-          path: build-artifacts/Rodrigues-Entregador-V17-Compose-Material-debug.apk
+          name: Rodrigues-Entregador-V18-APK-GRADLE-NUVEM
+          path: build-artifacts/Rodrigues-Entregador-V18-Gradle-Nuvem-UI-Polida-debug.apk
           if-no-files-found: error
