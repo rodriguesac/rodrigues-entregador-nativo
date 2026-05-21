@@ -107,6 +107,12 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.CloudOff
 import coil.compose.AsyncImage
 import com.rodriguesacai.entregador.AppSettings
 import com.rodriguesacai.entregador.PermissionStatusReader
@@ -280,9 +286,9 @@ fun DriverHomeScreen(
             NavigationBar(containerColor = navBg, tonalElevation = 0.dp) {
                 navItem(AppTab.Inicio, tab, "Início", Icons.Filled.Home) { tab = it }
                 navItem(AppTab.Corridas, tab, "Corridas", Icons.Filled.Route) { tab = it }
-                navItem(AppTab.Ganhos, tab, "Ganhos", Icons.Filled.AccountBalanceWallet) { tab = it }
+                navItem(AppTab.Ganhos, tab, "Carteira", Icons.Filled.AccountBalanceWallet) { tab = it }
                 navItem(AppTab.Historico, tab, "Histórico", Icons.Filled.History) { tab = it }
-                navItem(AppTab.Conta, tab, "Conta", Icons.Filled.Person) { tab = it }
+                navItem(AppTab.Conta, tab, "Mais", Icons.Filled.Person) { tab = it }
             }
         }
     ) { padding ->
@@ -331,9 +337,9 @@ fun DriverHomeScreen(
                         val normalized = target.lowercase(Locale.ROOT)
                         tab = when {
                             normalized.contains("ganho") || normalized.contains("carteira") || normalized.contains("repasse") -> AppTab.Ganhos
-                            normalized.contains("histor") || normalized.contains("corrida") -> AppTab.Historico
-                            normalized.contains("conta") || normalized.contains("perfil") || normalized.contains("pix") || normalized.contains("banco") -> AppTab.Conta
-                            normalized.contains("rota") || normalized.contains("mapa") -> AppTab.Corridas
+                            normalized.contains("histor") || normalized.contains("aviso") -> AppTab.Historico
+                            normalized.contains("conta") || normalized.contains("perfil") || normalized.contains("pix") || normalized.contains("banco") || normalized.contains("suporte") -> AppTab.Conta
+                            normalized.contains("rota") || normalized.contains("mapa") || normalized.contains("corrida") -> AppTab.Corridas
                             else -> AppTab.Inicio
                         }
                     }
@@ -624,7 +630,6 @@ private fun RowScope.navItem(item: AppTab, selected: AppTab, label: String, icon
         )
     )
 }
-
 @Composable
 private fun HomeContent(
     profile: DriverProfile,
@@ -664,7 +669,7 @@ private fun HomeContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         DriverHeader(
@@ -683,57 +688,62 @@ private fun HomeContent(
         )
         if (error.isNotBlank()) StatusMessage(error, true)
         EarningsStrip(stats, hideValues)
+
         if (activeRide == null && pendingRide == null) {
             val visibleBanners = if (appBanners.isNotEmpty()) appBanners else defaultHomeBanners(operational)
             AppHomeCarousel(visibleBanners, onInternalAction = onCarouselInternal)
             QuickActionsGrid(onInternalAction = onCarouselInternal)
         }
+
         when {
             activeRide != null -> ActiveRideCard(activeRide, onOpenNavigator, onUpdateRide)
             pendingRide != null && online -> IncomingRideCard(pendingRide, onAccept, onReject, onExpire)
-            operational.kind == AvailabilityKind.Disponivel -> WaitingCard(operational)
             operational.kind == AvailabilityKind.Restricao -> RestrictionCard(operational)
-            else -> OfflineCard(operational)
+            operational.kind == AvailabilityKind.Indisponivel -> OfflineCard(operational)
         }
         Spacer(Modifier.height(10.dp))
     }
 }
-
-
 private fun defaultHomeBanners(status: OperationalStatus): List<AppCarouselBanner> {
     val first = when (status.kind) {
         AvailabilityKind.Disponivel -> AppCarouselBanner(
-            id = "local-disponivel",
-            title = "Você está na fila",
-            badge = "DISPONÍVEL",
-            description = "Mantenha o app aberto ou em segundo plano. Quando uma corrida chegar, o alerta urgente aparece na tela.",
-            buttonText = "Aguardando",
+            id = "local-novidades-operacao",
+            title = "Novidades da operação",
+            badge = "NOVIDADES",
+            description = "Fique por dentro das melhorias, comunicados importantes e novas corridas da central.",
+            buttonText = "Saiba mais",
             order = 1,
-            active = true
+            active = true,
+            actionType = "internal",
+            actionTarget = "avisos"
         )
         AvailabilityKind.Restricao -> AppCarouselBanner(
             id = "local-restricao",
             title = "Resolva a restrição",
             badge = "ATENÇÃO",
             description = status.message.ifBlank { "Confira localização, internet, notificações e bateria para voltar a receber corridas." },
-            buttonText = "Ver conta",
+            buttonText = "Ver ajustes",
             order = 1,
-            active = true
+            active = true,
+            actionType = "internal",
+            actionTarget = "conta"
         )
         AvailabilityKind.EmEntrega -> AppCarouselBanner(
             id = "local-rota",
             title = "Corrida em andamento",
             badge = "ROTA",
-            description = "Siga as etapas da coleta e entrega. O carrossel volta quando você estiver livre.",
-            buttonText = "Em rota",
+            description = "Siga as etapas da coleta e entrega. A operação atual fica sempre na aba Corridas.",
+            buttonText = "Abrir corrida",
             order = 1,
-            active = true
+            active = true,
+            actionType = "internal",
+            actionTarget = "corridas"
         )
         else -> AppCarouselBanner(
             id = "local-offline",
             title = "Fique disponível",
             badge = "INÍCIO",
-            description = "Ative o status quando estiver pronto. O painel pode enviar avisos, campanhas e comunicados aqui.",
+            description = "Ative o status quando estiver pronto. Os avisos e campanhas aparecem aqui.",
             buttonText = "Conectar",
             order = 1,
             active = true
@@ -742,25 +752,30 @@ private fun defaultHomeBanners(status: OperationalStatus): List<AppCarouselBanne
     return listOf(
         first,
         AppCarouselBanner(
-            id = "local-repasse",
-            title = "Repasse organizado",
-            badge = "CARTEIRA",
-            description = "Acompanhe corridas, valores do dia e conferência de recebimento direto no app.",
-            buttonText = "Ganhos",
+            id = "local-indique",
+            title = "Indique e ganhe",
+            badge = "PROGRAMA",
+            description = "Convide entregadores e acompanhe campanhas de recompensa enviadas pelo gestor.",
+            buttonText = "Ver campanha",
             order = 2,
-            active = true
+            active = true,
+            actionType = "internal",
+            actionTarget = "avisos"
         ),
         AppCarouselBanner(
-            id = "local-dica",
-            title = "Operação limpa",
-            badge = "DICA",
-            description = "Endereço completo e rota aparecem na hora certa, sem poluir a tela principal do entregador.",
-            buttonText = "Entendi",
+            id = "local-seguranca",
+            title = "Segurança em primeiro lugar",
+            badge = "ATENÇÃO",
+            description = "Use capacete, respeite o trânsito e registre ocorrência quando houver problema na entrega.",
+            buttonText = "Orientações",
             order = 3,
-            active = true
+            active = true,
+            actionType = "internal",
+            actionTarget = "suporte"
         )
     )
 }
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -819,7 +834,6 @@ private fun AppHomeCarousel(banners: List<AppCarouselBanner>, onInternalAction: 
         }
     }
 }
-
 @Composable
 private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
     val hasImage = banner.imageUrl.isNotBlank()
@@ -837,13 +851,9 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(26.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF003B17), Color(0xFF058832), Color(0xFF06130A))
-                )
-            )
-            .border(1.dp, Color(0xFFE1E7DE), RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF007A28), Color(0xFF009B38), Color(0xFF005C22))))
+            .border(1.dp, Color(0xFFDCE9DA), RoundedCornerShape(22.dp))
             .then(if (clickable) Modifier.clickable { onAction() } else Modifier)
     ) {
         if (hasImage && !textOnly) {
@@ -854,22 +864,25 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                 modifier = Modifier.matchParentSize()
             )
             if (!imageOnly) {
-                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color(0xE6000000), Color(0xAA000000), Color.Transparent))))
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color(0xD9005C22), Color(0xA6005C22), Color.Transparent))))
             }
         } else {
             Canvas(Modifier.matchParentSize()) {
-                drawCircle(color = Color.White.copy(alpha = .14f), radius = size.minDimension * .52f, center = Offset(size.width * .92f, size.height * .10f))
-                drawCircle(color = Lime.copy(alpha = .24f), radius = size.minDimension * .36f, center = Offset(size.width * .74f, size.height * .92f))
-                drawLine(Color.White.copy(alpha = .16f), Offset(size.width * .12f, size.height * .78f), Offset(size.width * .85f, size.height * .28f), strokeWidth = 8f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 14f), 0f))
+                drawCircle(color = Color.White.copy(alpha = .14f), radius = size.minDimension * .56f, center = Offset(size.width * .83f, size.height * .22f))
+                drawCircle(color = Color(0xFF002D11).copy(alpha = .25f), radius = size.minDimension * .30f, center = Offset(size.width * .92f, size.height * .90f))
+                drawLine(Color.White.copy(alpha = .20f), Offset(size.width * .53f, size.height * .18f), Offset(size.width * .88f, size.height * .80f), strokeWidth = 8f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 14f), 0f))
+            }
+            Box(Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).size(86.dp).clip(RoundedCornerShape(28.dp)).background(Color.White.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color.White.copy(alpha = .90f), modifier = Modifier.size(44.dp))
             }
         }
 
         if (!imageOnly) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(18.dp),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(Modifier.fillMaxWidth(.68f)) {
                     if (showBadge) {
                         Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(alpha = .18f)).padding(horizontal = 10.dp, vertical = 5.dp)) {
                             Text(
@@ -877,19 +890,19 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                                 color = Color.White,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 1.1.sp,
+                                letterSpacing = 1.0.sp,
                                 fontFamily = AppFont,
                                 maxLines = 1
                             )
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(7.dp))
                     }
                     if (showTitle) {
                         Text(
                             banner.title,
                             color = Color.White,
-                            fontSize = 23.sp,
-                            lineHeight = 24.sp,
+                            fontSize = 21.sp,
+                            lineHeight = 22.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = AppFont,
                             maxLines = 2,
@@ -900,9 +913,9 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                     if (showDescription) {
                         Text(
                             banner.description,
-                            color = Color.White.copy(alpha = .88f),
+                            color = Color.White.copy(alpha = .92f),
                             fontSize = 11.sp,
-                            lineHeight = 15.sp,
+                            lineHeight = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = AppFont,
                             maxLines = 2,
@@ -913,8 +926,8 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                 if (showButton) {
                     Button(
                         onClick = onAction,
-                        modifier = Modifier.height(38.dp),
-                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.height(36.dp),
+                        shape = RoundedCornerShape(13.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = LimeDark)
                     ) { Text(banner.buttonText, fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = AppFont) }
                 }
@@ -922,6 +935,7 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
         }
     }
 }
+
 
 private fun String.normalizedBannerMode(): String {
     val value = trim().lowercase(Locale.ROOT)
@@ -953,7 +967,6 @@ private fun String.isPlaceholderBannerText(): Boolean {
         value.contains("informe um titulo") ||
         value == "saiba mais"
 }
-
 @Composable
 private fun QuickActionsGrid(onInternalAction: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -962,11 +975,12 @@ private fun QuickActionsGrid(onInternalAction: (String) -> Unit) {
             QuickActionTile("Ganhos", "Resumo financeiro", Icons.Filled.AccountBalanceWallet, Modifier.weight(1f)) { onInternalAction("ganhos") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            QuickActionTile("Mapa", "Rota e região", Icons.Filled.Map, Modifier.weight(1f)) { onInternalAction("mapa") }
-            QuickActionTile("Conta", "Pix e ajustes", Icons.Filled.Person, Modifier.weight(1f)) { onInternalAction("conta") }
+            QuickActionTile("Mapa", "Ver região", Icons.Filled.Map, Modifier.weight(1f)) { onInternalAction("mapa") }
+            QuickActionTile("Suporte", "Fale conosco", Icons.Filled.SupportAgent, Modifier.weight(1f)) { onInternalAction("conta") }
         }
     }
 }
+
 
 @Composable
 private fun QuickActionTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {
@@ -998,7 +1012,6 @@ private fun QuickActionTile(title: String, subtitle: String, icon: ImageVector, 
         }
     }
 }
-
 @Composable
 private fun DriverHeader(
     profile: DriverProfile,
@@ -1019,14 +1032,19 @@ private fun DriverHeader(
                 Text(
                     "Olá, ${profile.name.shortName()}",
                     color = Ink,
-                    fontSize = 23.sp,
+                    fontSize = 21.sp,
                     fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontFamily = AppFont
                 )
                 Text(
-                    operational.message.ifBlank { "Pronto para receber corridas" },
+                    when (operational.kind) {
+                        AvailabilityKind.Disponivel -> "Pronto para receber corridas"
+                        AvailabilityKind.Restricao -> "Ajuste pendências para ficar online"
+                        AvailabilityKind.EmEntrega -> "Corrida em andamento"
+                        else -> "Você está offline"
+                    },
                     color = Muted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1035,53 +1053,48 @@ private fun DriverHeader(
                     fontFamily = AppFont
                 )
             }
-            HeaderRoundIcon(Icons.Filled.History)
+            HeaderRoundIcon(Icons.Filled.Notifications)
             Spacer(Modifier.width(8.dp))
-            HeaderRoundIcon(Icons.Filled.Person)
+            HeaderRoundIcon(Icons.Filled.ChatBubbleOutline)
         }
 
         Button(
             onClick = onStatusClick,
-            modifier = Modifier.fillMaxWidth().height(72.dp),
-            shape = RoundedCornerShape(26.dp),
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            shape = RoundedCornerShape(22.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = operational.buttonColor,
                 contentColor = operational.textColor
-            )
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(42.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = if (operational.kind == AvailabilityKind.Indisponivel) .55f else .16f)),
+                        .background(Color.White.copy(alpha = if (operational.kind == AvailabilityKind.Indisponivel) .42f else .16f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Circle, contentDescription = null, tint = operational.textColor, modifier = Modifier.size(15.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(operational.label, fontSize = 19.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
-                    Text(
+                    Icon(
                         when (operational.kind) {
-                            AvailabilityKind.Disponivel -> "Você está online para receber corridas"
-                            AvailabilityKind.Restricao -> "Resolva a pendência para voltar a receber ofertas"
-                            AvailabilityKind.EmEntrega -> "Corrida ativa em andamento"
-                            else -> "Toque para ficar disponível"
+                            AvailabilityKind.Restricao -> Icons.Filled.ErrorOutline
+                            AvailabilityKind.EmEntrega -> Icons.Filled.Route
+                            else -> Icons.Filled.Circle
                         },
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = operational.textColor.copy(alpha = .82f),
-                        fontFamily = AppFont,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        contentDescription = null,
+                        tint = operational.textColor,
+                        modifier = Modifier.size(if (operational.kind == AvailabilityKind.Disponivel) 13.dp else 20.dp)
                     )
                 }
+                Spacer(Modifier.width(12.dp))
+                Text(operational.label, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ExpandLess, contentDescription = null, tint = operational.textColor.copy(alpha = .85f), modifier = Modifier.size(22.dp))
             }
         }
     }
 }
+
 
 @Composable
 private fun HeaderRoundIcon(icon: ImageVector) {
@@ -1096,41 +1109,46 @@ private fun HeaderRoundIcon(icon: ImageVector) {
         Icon(icon, contentDescription = null, tint = Ink, modifier = Modifier.size(21.dp))
     }
 }
-
 @Composable
 private fun EarningsStrip(stats: DriverStats, hideValues: Boolean) {
-    GlassCard(padding = 0) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFE5EAE4), RoundedCornerShape(22.dp))
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1.2f)) {
-                Text("Ganhos do dia", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            Column(Modifier.weight(1.35f)) {
+                Text("Ganhos de hoje", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
                 Text(
                     if (hideValues) "R$ •••••" else DriverRepository.formatCurrency(stats.totalToday),
                     color = Ink,
-                    fontSize = 28.sp,
+                    fontSize = 25.sp,
                     fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontFamily = AppFont
                 )
             }
-            Divider(Modifier.height(46.dp).width(1.dp), color = Color(0xFFE5EAE4))
-            Column(Modifier.weight(.85f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Divider(Modifier.height(44.dp).width(1.dp), color = Color(0xFFE5EAE4))
+            Column(Modifier.weight(.75f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stats.finishedCount.toString(), color = LimeDark, fontSize = 21.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
                 Text("Corridas", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
-                Text(stats.finishedCount.toString(), color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
             }
-            Divider(Modifier.height(46.dp).width(1.dp), color = Color(0xFFE5EAE4))
-            Column(Modifier.weight(.85f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Aceitação", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
-                Text("${stats.score}%", color = Lime, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Divider(Modifier.height(44.dp).width(1.dp), color = Color(0xFFE5EAE4))
+            Column(Modifier.weight(.75f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("${stats.score}%", color = LimeDark, fontSize = 21.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Finalizadas", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
             }
         }
     }
 }
+
 
 @Composable
 private fun OfflineCard(status: OperationalStatus) {
@@ -1523,28 +1541,37 @@ private fun MoneyText(value: String, visible: Boolean, fontSize: Int) {
         overflow = TextOverflow.Ellipsis
     )
 }
-
 @Composable
 private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = false) {
     var filter by remember { mutableStateOf("Todas") }
     var expandedId by remember { mutableStateOf<String?>(null) }
-    val ordered = remember(history) { history.sortedByDescending { it.createdAtMillis } }
-    val finalizadas = ordered.count { it.historyKind() == "Finalizada" }
-    val recusadas = ordered.count { it.historyKind() == "Recusada" }
-    val expiradas = ordered.count { it.historyKind() == "Expirada" }
-    val filtered = when (filter) {
-        "Finalizadas" -> ordered.filter { it.historyKind() == "Finalizada" }
-        "Recusadas" -> ordered.filter { it.historyKind() == "Recusada" }
-        "Expiradas" -> ordered.filter { it.historyKind() == "Expirada" }
-        else -> ordered
+    val filtered = remember(history, filter) {
+        history.filter { item ->
+            when (filter) {
+                "Finalizadas" -> item.historyKind() == "Finalizada"
+                "Recusadas" -> item.historyKind() == "Recusada"
+                "Expiradas" -> item.historyKind() == "Expirada"
+                else -> true
+            }
+        }
     }
 
     Column(
-        modifier = if (embedded) Modifier.fillMaxWidth() else Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        Modifier
+            .then(if (embedded) Modifier else Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
+            .padding(if (embedded) 0.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         if (!embedded) {
-            HistoryHero(total = ordered.size, finalizadas = finalizadas, recusadas = recusadas, expiradas = expiradas)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Histórico", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Finalizadas, recusadas e expiradas em um lugar só.", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+                Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White).border(1.dp, Color(0xFFE2E8E0), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.FilterList, contentDescription = null, tint = Lime, modifier = Modifier.size(22.dp))
+                }
+            }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -1577,6 +1604,7 @@ private fun HistoryContent(history: List<DriverHistory>, embedded: Boolean = fal
         }
     }
 }
+
 
 @Composable
 private fun HistoryHero(total: Int, finalizadas: Int, recusadas: Int, expiradas: Int) {
