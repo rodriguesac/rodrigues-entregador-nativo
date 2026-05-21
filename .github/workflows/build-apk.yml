@@ -61,6 +61,6 @@ jobs:
       - name: Publicar APK Debug
         uses: actions/upload-artifact@v4
         with:
-          name: Rodrigues-Entregador-V6-0-0-debug-apk
+          name: Rodrigues-Entregador-V6-1-0-lovable-ui-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

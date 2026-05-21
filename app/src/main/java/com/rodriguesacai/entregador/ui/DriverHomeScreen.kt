@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -405,7 +406,7 @@ private fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF190622), Color(0xFF07040B))))
+            .background(Brush.verticalGradient(listOf(BgTop, BgBottom)))
             .padding(18.dp)
     ) {
         Column(
@@ -414,8 +415,8 @@ private fun LoginScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center
         ) {
-            Text("RODRIGUES ENTREGADOR", color = Lime, fontSize = 22.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), fontFamily = AppFont)
-            Text("Acesso do motoboy", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), fontFamily = AppFont)
+            Text("Rodrigues entregas", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), fontFamily = AppFont)
+            Text("Acesso do entregador", color = Lime, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), fontFamily = AppFont)
             Spacer(Modifier.height(18.dp))
             GlassCard(padding = 18) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -774,7 +775,7 @@ private fun AppHomeCarousel(banners: List<AppCarouselBanner>, onInternalAction: 
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(178.dp)
+                .aspectRatio(21f / 8f)
         ) { page ->
             val banner = safeBanners[page]
             AppHomeBannerCard(
@@ -815,7 +816,9 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
     val hasImage = banner.imageUrl.isNotBlank()
     val normalizedMode = banner.displayMode.normalizedBannerMode()
     val placeholderText = banner.title.isPlaceholderBannerText() && banner.description.isPlaceholderBannerText()
-    val imageOnly = normalizedMode == "image_only" || (hasImage && ((banner.title.isBlank() && banner.description.isBlank()) || placeholderText))
+    val textOnly = normalizedMode == "text_only"
+    val manualNoOverlay = banner.showTitle == false && banner.showDescription == false && banner.showBadge == false
+    val imageOnly = !textOnly && (normalizedMode == "image_only" || manualNoOverlay || (hasImage && ((banner.title.isBlank() && banner.description.isBlank()) || placeholderText)))
     val showBadge = !imageOnly && (banner.showBadge ?: banner.badge.isNotBlank())
     val showTitle = !imageOnly && (banner.showTitle ?: banner.title.isNotBlank())
     val showDescription = !imageOnly && (banner.showDescription ?: banner.description.isNotBlank())
@@ -838,7 +841,7 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
             .border(1.dp, Color(0xFFE4E8EF), RoundedCornerShape(26.dp))
             .then(if (clickable) Modifier.clickable { onAction() } else Modifier)
     ) {
-        if (hasImage) {
+        if (hasImage && !textOnly) {
             AsyncImage(
                 model = banner.imageUrl,
                 contentDescription = banner.title.ifBlank { "Banner do app" },
@@ -928,8 +931,8 @@ private fun String.normalizedBannerMode(): String {
         .replace("ã", "a")
         .replace("ç", "c")
     return when (value) {
-        "image_only", "imagem", "imagem_only", "so_imagem", "somente_imagem", "banner_pronto", "full_image", "arte_pronta" -> "image_only"
-        "text_only", "texto", "so_texto", "somente_texto" -> "text_only"
+        "image_only", "imagem", "imagem_only", "so_imagem", "somente_imagem", "banner_pronto", "full_image", "arte_pronta", "apenas_imagem", "foto_cheia", "sem_overlay" -> "image_only"
+        "text_only", "texto", "so_texto", "somente_texto", "card_texto" -> "text_only"
         else -> value.ifBlank { "auto" }
     }
 }
@@ -944,8 +947,11 @@ private fun String.isPlaceholderBannerText(): Boolean {
     if (value.isBlank()) return true
     return value.contains("banner sem") ||
         value.contains("sem titulo") ||
+        value.contains("sem titulo") ||
+        value.contains("sem titul") ||
         value.contains("comunicado do painel") ||
         value.contains("mensagem enviada pelo gestor") ||
+        value.contains("informe um titulo") ||
         value == "saiba mais"
 }
 

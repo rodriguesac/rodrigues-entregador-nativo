@@ -13,8 +13,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 36
-        versionCode = 600
-        versionName = "6.0.0"
+        versionCode = 610
+        versionName = "6.1.0-lovable-ui"
     }
 
     buildFeatures { compose = true }
