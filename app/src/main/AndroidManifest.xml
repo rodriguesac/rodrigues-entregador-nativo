@@ -1,58 +1,40 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:name=".RodriguesEntregadorApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:name=".RodriguesApp"
+        android:allowBackup="false"
         android:icon="@drawable/ic_launcher_foreground"
         android:label="Rodrigues Entregador"
-        android:roundIcon="@drawable/ic_launcher_foreground"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.RodriguesEntregador">
-
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".UrgentRideActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
-            android:excludeFromRecents="false"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:theme="@style/Theme.RodriguesEntregador.FullScreen"
-            android:configChanges="fontScale|density|screenSize|orientation" />
+            android:turnScreenOn="true" />
 
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/Theme.RodriguesEntregador"
-            android:configChanges="fontScale|density|screenSize|orientation">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".service.DriverLocationService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
 
         <service
             android:name=".service.RideFirebaseMessagingService"
@@ -61,5 +43,11 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".service.OnlineDriverService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
     </application>
 </manifest>

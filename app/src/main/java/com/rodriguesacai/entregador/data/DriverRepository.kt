@@ -14,6 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
 import java.util.Locale
+import java.time.Instant
 
 object DriverRepository {
     private const val PREFS = "driver_session"
@@ -29,6 +30,7 @@ object DriverRepository {
     private const val REAL_DRIVER_COLLECTION = "entregadores"
     private val DRIVER_COLLECTIONS = listOf("entregadores", "drivers", "motoboys", "deliveryDrivers", "couriers")
     private val MISSION_COLLECTIONS = listOf("rotas_entrega", "pedidos", "rides")
+    private val CAROUSEL_COLLECTIONS = listOf("carrosselApp", "bannersApp", "appBanners", "bannersEntregador", "carrossel_entregador", "entregadorBanners")
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
@@ -135,7 +137,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "5.7.0-alpha-rastreio-real",
+            "appVersion" to "5.8.0-carrossel-home",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -178,7 +180,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.7.0-alpha-rastreio-real"
+                "appVersion" to "5.8.0-carrossel-home"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -218,7 +220,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "5.7.0-alpha-rastreio-real"
+                "appVersion" to "5.8.0-carrossel-home"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -257,7 +259,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "5.7.0-alpha-rastreio-real",
+                "appVersion" to "5.8.0-carrossel-home",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -359,7 +361,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "5.7.0-alpha-rastreio-real"
+                "appVersion" to "5.8.0-carrossel-home"
             ),
             SetOptions.merge()
         )
@@ -381,7 +383,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "5.7.0-alpha-rastreio-real"
+            "appVersion" to "5.8.0-carrossel-home"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
@@ -402,6 +404,37 @@ object DriverRepository {
                 SetOptions.merge()
             )
         }
+    }
+
+
+    fun listenAppCarousel(
+        onBanners: (List<AppCarouselBanner>) -> Unit,
+        onError: (String) -> Unit = {}
+    ): ListenerRegistration {
+        val state = mutableMapOf<String, List<AppCarouselBanner>>()
+        fun emit() {
+            val now = System.currentTimeMillis()
+            val banners = state.values.flatten()
+                .distinctBy { "${it.collectionName}:${it.id}" }
+                .filter { it.isVisible(now) }
+                .sortedWith(compareBy<AppCarouselBanner> { it.order }.thenBy { it.title.lowercase(Locale.ROOT) })
+                .take(12)
+            onBanners(banners)
+        }
+
+        val registrations = CAROUSEL_COLLECTIONS.map { collectionName ->
+            db.collection(collectionName).limit(30).addSnapshotListener { snap, err ->
+                if (err != null) {
+                    onError(err.message ?: "Erro ao ouvir carrossel do app.")
+                    return@addSnapshotListener
+                }
+                state[collectionName] = snap?.documents.orEmpty().mapNotNull { doc ->
+                    doc.toAppCarouselBanner(collectionName)
+                }
+                emit()
+            }
+        }
+        return CompositeListenerRegistration(registrations)
     }
 
     fun listenPendingRide(
@@ -707,7 +740,6 @@ object DriverRepository {
             val realStatus = when (status) {
                 "pickup" -> "COLETANDO"
                 "delivering" -> "EM_ROTA"
-                "arrived_client" -> "ENTREGADOR_NO_LOCAL"
                 "finished" -> "CONCLUIDA"
                 else -> status
             }
@@ -727,11 +759,6 @@ object DriverRepository {
                 "delivering" -> {
                     fields["saiuEntregaEm"] = Timestamp.now()
                     fields["deliveryStartedAt"] = Timestamp.now()
-                }
-                "arrived_client" -> {
-                    fields["entregadorChegouClienteEm"] = Timestamp.now()
-                    fields["arrivedAtClientAt"] = Timestamp.now()
-                    fields["manterCorridaAberta"] = true
                 }
                 "finished" -> {
                     fields["concluidaEm"] = Timestamp.now()
@@ -780,65 +807,6 @@ object DriverRepository {
                     onDone()
                 }
                 .addOnFailureListener { onError(it.message ?: "Falha ao atualizar corrida.") }
-        }, onNotFound = {
-            onError("Corrida nao encontrada.")
-        })
-    }
-
-    fun registerRideOccurrence(
-        context: Context,
-        rideId: String,
-        reason: String,
-        note: String = "",
-        onDone: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        val profile = currentSession(context)
-        if (profile == null) {
-            onError("Faça login para registrar ocorrência.")
-            return
-        }
-        val reasonText = reason.trim().ifBlank { "Ocorrência sem motivo informado" }
-        findMissionDocument(rideId, onFound = { doc ->
-            val collectionName = doc.reference.parent.id
-            val ride = doc.toDriverRide(collectionName)
-            val now = Timestamp.now()
-            val payload = linkedMapOf<String, Any?>(
-                "statusOcorrencia" to "PENDENTE_SOLUCAO",
-                "ocorrenciaAtiva" to true,
-                "ultimaOcorrenciaMotivo" to reasonText,
-                "ultimaOcorrenciaObservacao" to note.trim(),
-                "ultimaOcorrenciaEm" to now,
-                "statusAtualizadoEm" to now,
-                "atualizadoEm" to now,
-                "updatedAt" to now,
-                "ocorrenciaEntrega" to mapOf(
-                    "ativa" to true,
-                    "motivo" to reasonText,
-                    "observacao" to note.trim(),
-                    "entregadorId" to profile.id,
-                    "entregadorNome" to profile.name,
-                    "criadoEm" to now
-                )
-            )
-            doc.reference.set(payload, SetOptions.merge())
-                .addOnSuccessListener {
-                    addHistory(profile, rideId, "OCORRENCIA: $reasonText", ride?.valueNumber ?: 0.0, collectionName, ride)
-                    db.collection(profile.collectionName).document(profile.id).set(
-                        mapOf(
-                            "statusOperacional" to "OCORRENCIA_ENTREGA",
-                            "corridaAtualId" to rideId,
-                            "missaoAtualId" to rideId,
-                            "ultimaOcorrenciaMotivo" to reasonText,
-                            "rastreamentoAtivo" to true,
-                            "atualizadoEm" to now,
-                            "updatedAt" to now
-                        ),
-                        SetOptions.merge()
-                    )
-                    onDone()
-                }
-                .addOnFailureListener { onError(it.message ?: "Falha ao registrar ocorrência.") }
         }, onNotFound = {
             onError("Corrida nao encontrada.")
         })
@@ -895,7 +863,7 @@ object DriverRepository {
                 "intervaloSeg" to intervaloSeg,
                 "atualizadoEm" to now
             ),
-            "localizacaoOrigem" to "android_native_v5_7"
+            "localizacaoOrigem" to "android_native_v5_8_carrossel"
         )
 
         db.collection(profile.collectionName).document(profile.id)
@@ -982,7 +950,7 @@ object DriverRepository {
                 "updatedAt" to now,
                 "criadoEm" to now,
                 "createdAt" to now,
-                "origem" to "android_native_v5_7_alpha",
+                "origem" to "android_native_v5_8_carrossel_alpha",
                 "eventosStatus" to FieldValue.arrayUnion(
                     mapOf(
                         "status" to action,
@@ -993,6 +961,32 @@ object DriverRepository {
                 )
             ),
             SetOptions.merge()
+        )
+    }
+
+    private fun DocumentSnapshot.toAppCarouselBanner(collectionName: String): AppCarouselBanner? {
+        val title = anyString("title", "titulo", "nome", "headline").ifBlank { return null }
+        val status = anyString("status", "situacao", "situação").upperOrTrim()
+        val activeByStatus = status.isBlank() || status in setOf("ATIVO", "ACTIVE", "APROVADO", "PUBLICADO", "ONLINE")
+        val active = anyBoolean("active", "ativo", "enabled", "visivel", "visível", "publicado") ?: activeByStatus
+        val startsAtMillis = anyTimestamp("startsAt", "inicioEm", "começaEm", "comecaEm")?.toDate()?.time
+            ?: anyString("startsAt", "inicio", "inicioEm", "dataInicio").toFlexibleMillisOrNull()
+        val endsAtMillis = anyTimestamp("endsAt", "fimEm", "terminaEm")?.toDate()?.time
+            ?: anyString("endsAt", "fim", "fimEm", "dataFim").toFlexibleMillisOrNull()
+        return AppCarouselBanner(
+            id = id,
+            collectionName = collectionName,
+            title = title,
+            badge = anyString("badge", "selo", "tag", "categoria").ifBlank { "AVISO" },
+            description = anyString("description", "descricao", "descrição", "subtitle", "subtitulo", "texto", "mensagem"),
+            buttonText = anyString("buttonText", "textoBotao", "textoBotão", "cta", "callToAction").ifBlank { "Saiba mais" },
+            imageUrl = anyString("imageUrl", "imagemUrl", "urlImagem", "image", "imagem", "bannerUrl", "fotoUrl"),
+            active = active,
+            order = anyDouble("order", "ordem", "position", "posicao", "posição")?.toInt() ?: 999,
+            actionType = anyString("actionType", "tipoAcao", "tipoAção", "acao", "ação").ifBlank { "none" },
+            actionTarget = anyString("actionTarget", "destino", "target", "url", "link"),
+            startsAtMillis = startsAtMillis,
+            endsAtMillis = endsAtMillis
         )
     }
 
@@ -1192,6 +1186,29 @@ data class DriverHistory(
     val createdAtMillis: Long,
     val createdLabel: String
 )
+
+data class AppCarouselBanner(
+    val id: String,
+    val collectionName: String = "local",
+    val title: String,
+    val badge: String = "AVISO",
+    val description: String = "",
+    val buttonText: String = "Saiba mais",
+    val imageUrl: String = "",
+    val active: Boolean = true,
+    val order: Int = 999,
+    val actionType: String = "none",
+    val actionTarget: String = "",
+    val startsAtMillis: Long? = null,
+    val endsAtMillis: Long? = null
+) {
+    fun isVisible(nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (!active) return false
+        if (startsAtMillis != null && nowMillis < startsAtMillis) return false
+        if (endsAtMillis != null && nowMillis > endsAtMillis) return false
+        return true
+    }
+}
 
 data class DriverRide(
     val id: String,
@@ -1564,6 +1581,22 @@ private fun DocumentSnapshot.getDeep(path: String): Any? {
         }
     }
     return current
+}
+
+
+private fun String.toFlexibleMillisOrNull(): Long? {
+    val value = trim()
+    if (value.isBlank()) return null
+    value.toLongOrNull()?.let { return it }
+    val candidates = buildList {
+        add(value)
+        if (value.contains('T') && !value.endsWith('Z')) add("${value}Z")
+        if (value.count { it == ':' } == 1 && value.contains('T')) add("${value}:00Z")
+        if (!value.contains('T')) add("${value}T00:00:00Z")
+    }
+    return candidates.firstNotNullOfOrNull { candidate ->
+        runCatching { Instant.parse(candidate).toEpochMilli() }.getOrNull()
+    }
 }
 
 private fun DocumentSnapshot.anyString(vararg keys: String): String {

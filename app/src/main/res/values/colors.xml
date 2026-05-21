@@ -1,9 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="white">#FFFFFFFF</color>
-    <color name="black">#FF000000</color>
-    <color name="up_green">#FF12B76A</color>
-    <color name="up_dark">#FF0B1220</color>
-    <color name="up_bg">#FFF6F8FA</color>
-    <color name="up_red">#FFE53935</color>
+    <color name="status_bar_dark">#050507</color>
+    <color name="accent_purple">#6D36D9</color>
 </resources>
