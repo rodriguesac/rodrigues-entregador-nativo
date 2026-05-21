@@ -756,21 +756,21 @@ private fun defaultHomeBanners(status: OperationalStatus): List<AppCarouselBanne
 @Composable
 private fun AppHomeCarousel(banners: List<AppCarouselBanner>, onInternalAction: (String) -> Unit) {
     if (banners.isEmpty()) return
-    val safeBanners = banners.filter { it.active }.ifEmpty { banners }
+    val safeBanners = banners.filter { it.isVisible() }.ifEmpty { banners.filter { it.active }.ifEmpty { banners } }
     val pagerState = rememberPagerState(pageCount = { safeBanners.size })
     val uriHandler = LocalUriHandler.current
 
     LaunchedEffect(safeBanners.size) {
         if (safeBanners.size > 1) {
             while (true) {
-                delay(5_000)
+                delay(6_000)
                 val next = (pagerState.currentPage + 1) % safeBanners.size
                 pagerState.animateScrollToPage(next)
             }
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
@@ -785,8 +785,7 @@ private fun AppHomeCarousel(banners: List<AppCarouselBanner>, onInternalAction: 
                     val target = banner.actionTarget.trim()
                     when {
                         action == "link" && target.startsWith("http", ignoreCase = true) -> uriHandler.openUri(target)
-                        action == "internal" -> onInternalAction(target)
-                        action == "modal" -> onInternalAction(target)
+                        action == "internal" || action == "modal" -> onInternalAction(target)
                     }
                 }
             )
@@ -802,9 +801,9 @@ private fun AppHomeCarousel(banners: List<AppCarouselBanner>, onInternalAction: 
                     Modifier
                         .padding(horizontal = 3.dp)
                         .height(7.dp)
-                        .width(if (selected) 24.dp else 7.dp)
+                        .width(if (selected) 26.dp else 7.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (selected) Lime else Color(0xFFD5DADF))
+                        .background(if (selected) Lime else Color(0xFFD8DED6))
                 )
             }
         }
@@ -831,14 +830,10 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
             .clip(RoundedCornerShape(26.dp))
             .background(
                 Brush.linearGradient(
-                    listOf(
-                        Color(0xFF012F13),
-                        Color(0xFF078334),
-                        Color(0xFF0B461E)
-                    )
+                    listOf(Color(0xFF003B17), Color(0xFF058832), Color(0xFF06130A))
                 )
             )
-            .border(1.dp, Color(0xFFE4E8EF), RoundedCornerShape(26.dp))
+            .border(1.dp, Color(0xFFE1E7DE), RoundedCornerShape(26.dp))
             .then(if (clickable) Modifier.clickable { onAction() } else Modifier)
     ) {
         if (hasImage && !textOnly) {
@@ -849,58 +844,55 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                 modifier = Modifier.matchParentSize()
             )
             if (!imageOnly) {
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .background(Brush.horizontalGradient(listOf(Color(0xD9000000), Color(0x88000000), Color.Transparent)))
-                )
+                Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color(0xE6000000), Color(0xAA000000), Color.Transparent))))
             }
         } else {
             Canvas(Modifier.matchParentSize()) {
                 drawCircle(color = Color.White.copy(alpha = .14f), radius = size.minDimension * .52f, center = Offset(size.width * .92f, size.height * .10f))
-                drawCircle(color = Lime.copy(alpha = .22f), radius = size.minDimension * .32f, center = Offset(size.width * .72f, size.height * .92f))
+                drawCircle(color = Lime.copy(alpha = .24f), radius = size.minDimension * .36f, center = Offset(size.width * .74f, size.height * .92f))
+                drawLine(Color.White.copy(alpha = .16f), Offset(size.width * .12f, size.height * .78f), Offset(size.width * .85f, size.height * .28f), strokeWidth = 8f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 14f), 0f))
             }
         }
 
         if (!imageOnly) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(18.dp),
+                modifier = Modifier.fillMaxSize().padding(18.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
                     if (showBadge) {
-                        Text(
-                            banner.badge.ifBlank { "AVISO" }.uppercase(Locale.ROOT),
-                            color = if (hasImage) Color(0xFFB8FF7D) else Color.White.copy(alpha = .86f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            fontFamily = AppFont,
-                            maxLines = 1
-                        )
-                        Spacer(Modifier.height(7.dp))
+                        Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(alpha = .18f)).padding(horizontal = 10.dp, vertical = 5.dp)) {
+                            Text(
+                                banner.badge.ifBlank { "AVISO" }.uppercase(Locale.ROOT),
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.1.sp,
+                                fontFamily = AppFont,
+                                maxLines = 1
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
                     if (showTitle) {
                         Text(
                             banner.title,
                             color = Color.White,
-                            fontSize = 24.sp,
-                            lineHeight = 25.sp,
+                            fontSize = 23.sp,
+                            lineHeight = 24.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = AppFont,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                     }
                     if (showDescription) {
                         Text(
                             banner.description,
-                            color = Color.White.copy(alpha = .84f),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
+                            color = Color.White.copy(alpha = .88f),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = AppFont,
                             maxLines = 2,
@@ -914,9 +906,7 @@ private fun AppHomeBannerCard(banner: AppCarouselBanner, onAction: () -> Unit) {
                         modifier = Modifier.height(38.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = LimeDark)
-                    ) {
-                        Text(banner.buttonText, fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                    }
+                    ) { Text(banner.buttonText, fontSize = 11.sp, fontWeight = FontWeight.Black, fontFamily = AppFont) }
                 }
             }
         }
@@ -947,7 +937,6 @@ private fun String.isPlaceholderBannerText(): Boolean {
     if (value.isBlank()) return true
     return value.contains("banner sem") ||
         value.contains("sem titulo") ||
-        value.contains("sem titulo") ||
         value.contains("sem titul") ||
         value.contains("comunicado do painel") ||
         value.contains("mensagem enviada pelo gestor") ||
@@ -963,7 +952,7 @@ private fun QuickActionsGrid(onInternalAction: (String) -> Unit) {
             QuickActionTile("Ganhos", "Resumo financeiro", Icons.Filled.AccountBalanceWallet, Modifier.weight(1f)) { onInternalAction("ganhos") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            QuickActionTile("Mapa", "Ver região", Icons.Filled.Map, Modifier.weight(1f)) { onInternalAction("mapa") }
+            QuickActionTile("Mapa", "Rota e região", Icons.Filled.Map, Modifier.weight(1f)) { onInternalAction("mapa") }
             QuickActionTile("Conta", "Pix e ajustes", Icons.Filled.Person, Modifier.weight(1f)) { onInternalAction("conta") }
         }
     }
@@ -973,9 +962,9 @@ private fun QuickActionsGrid(onInternalAction: (String) -> Unit) {
 private fun QuickActionTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         modifier = modifier
-            .border(1.dp, Color(0xFFE5EAF0), RoundedCornerShape(22.dp))
+            .border(1.dp, Color(0xFFE4EAE2), RoundedCornerShape(24.dp))
             .clickable { onClick() }
     ) {
         Row(
@@ -984,17 +973,17 @@ private fun QuickActionTile(title: String, subtitle: String, icon: ImageVector, 
         ) {
             Box(
                 Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFFEAF7EE)),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFFE8F8EC)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = Lime, modifier = Modifier.size(22.dp))
+                Icon(icon, contentDescription = null, tint = Lime, modifier = Modifier.size(24.dp))
             }
-            Spacer(Modifier.width(11.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
-                Text(subtitle, color = Muted2, fontSize = 11.sp, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
+                Text(subtitle, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -1009,8 +998,11 @@ private fun DriverHeader(
     onToggleValues: () -> Unit,
     onStatusClick: () -> Unit
 ) {
-    GlassCard(padding = 16) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Avatar(profile.name, profile.photoUrl)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -1023,45 +1015,110 @@ private fun DriverHeader(
                     overflow = TextOverflow.Ellipsis,
                     fontFamily = AppFont
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Hoje ${if (hideValues) "••••" else DriverRepository.formatCurrency(stats.totalToday)}",
-                        color = Lime,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontFamily = AppFont
-                    )
-                    TextButton(onClick = onToggleValues) {
-                        Icon(
-                            if (hideValues) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = null,
-                            tint = Muted,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                Text(
+                    operational.message.ifBlank { "Pronto para receber corridas" },
+                    color = Muted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontFamily = AppFont
+                )
             }
+            HeaderRoundIcon(Icons.Filled.History)
+            Spacer(Modifier.width(8.dp))
+            HeaderRoundIcon(Icons.Filled.Person)
         }
-        Spacer(Modifier.height(12.dp))
+
         Button(
             onClick = onStatusClick,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(22.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = operational.buttonColor, contentColor = operational.textColor)
+            modifier = Modifier.fillMaxWidth().height(72.dp),
+            shape = RoundedCornerShape(26.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = operational.buttonColor,
+                contentColor = operational.textColor
+            )
         ) {
-            Text(operational.label, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = if (operational.kind == AvailabilityKind.Indisponivel) .55f else .16f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Circle, contentDescription = null, tint = operational.textColor, modifier = Modifier.size(15.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                    Text(operational.label, fontSize = 19.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
+                    Text(
+                        when (operational.kind) {
+                            AvailabilityKind.Disponivel -> "Você está online para receber corridas"
+                            AvailabilityKind.Restricao -> "Resolva a pendência para voltar a receber ofertas"
+                            AvailabilityKind.EmEntrega -> "Corrida ativa em andamento"
+                            else -> "Toque para ficar disponível"
+                        },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = operational.textColor.copy(alpha = .82f),
+                        fontFamily = AppFont,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(Icons.Filled.ExpandLess, contentDescription = null, tint = operational.textColor.copy(alpha = .85f), modifier = Modifier.size(22.dp))
+            }
         }
     }
 }
 
 @Composable
+private fun HeaderRoundIcon(icon: ImageVector) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(1.dp, Color(0xFFE2E8E0), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = Ink, modifier = Modifier.size(21.dp))
+    }
+}
+
+@Composable
 private fun EarningsStrip(stats: DriverStats, hideValues: Boolean) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        MiniStat("Hoje", if (hideValues) "••••" else DriverRepository.formatCurrency(stats.totalToday), Modifier.weight(1.15f))
-        MiniStat("Corridas", stats.finishedCount.toString(), Modifier.weight(.85f))
-        MiniStat("Aceitação", "${stats.score}%", Modifier.weight(.9f))
+    GlassCard(padding = 0) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1.2f)) {
+                Text("Ganhos do dia", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text(
+                    if (hideValues) "R$ •••••" else DriverRepository.formatCurrency(stats.totalToday),
+                    color = Ink,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontFamily = AppFont
+                )
+            }
+            Divider(Modifier.height(46.dp).width(1.dp), color = Color(0xFFE5EAE4))
+            Column(Modifier.weight(.85f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Corridas", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text(stats.finishedCount.toString(), color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
+            Divider(Modifier.height(46.dp).width(1.dp), color = Color(0xFFE5EAE4))
+            Column(Modifier.weight(.85f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Aceitação", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                Text("${stats.score}%", color = Lime, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
+        }
     }
 }
 
@@ -1070,11 +1127,11 @@ private fun OfflineCard(status: OperationalStatus) {
     GlassCard(padding = 18) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Indisponível", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text(status.message.ifBlank { "Toque no botão acima para ficar disponível" }, color = Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                Text("Indisponível", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(status.message.ifBlank { "Fique disponível para receber corridas" }, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
             }
-            Box(Modifier.size(54.dp).clip(CircleShape).background(Color(0xFF25222B)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Circle, contentDescription = null, tint = Muted2, modifier = Modifier.size(18.dp))
+            Box(Modifier.size(54.dp).clip(CircleShape).background(Color(0xFFE9ECE7)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Circle, contentDescription = null, tint = Muted2, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -1082,11 +1139,17 @@ private fun OfflineCard(status: OperationalStatus) {
 
 @Composable
 private fun RestrictionCard(status: OperationalStatus) {
-    GlassCard(padding = 18, borderColor = Danger.copy(alpha = .35f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4F7)),
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Danger.copy(alpha = .28f), RoundedCornerShape(28.dp))
+    ) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Restrição ativa", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Restrição ativa", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
                 Text(status.message, color = Danger, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Spacer(Modifier.height(6.dp))
+                Text("O app bloqueia disponibilidade para evitar oferta perdida e problema operacional.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
             }
             RadarPulse(Danger, slow = true)
         }
@@ -1095,11 +1158,15 @@ private fun RestrictionCard(status: OperationalStatus) {
 
 @Composable
 private fun WaitingCard(status: OperationalStatus) {
-    GlassCard(padding = 18, borderColor = Lime.copy(alpha = .30f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFFAF2)),
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Lime.copy(alpha = .24f), RoundedCornerShape(28.dp))
+    ) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Aguardando corridas", color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text("Pronto para receber pedidos", color = Lime, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Aguardando corridas", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("Você está pronto para receber ofertas da operação.", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
             }
             RadarPulse(Lime, slow = false)
         }
@@ -1115,7 +1182,6 @@ private fun IncomingRideCard(
 ) {
     var seconds by remember(ride.id) { mutableStateOf(60) }
     var rejectReason by remember(ride.id) { mutableStateOf("") }
-    var detailsOpen by remember(ride.id) { mutableStateOf(false) }
     LaunchedEffect(ride.id) {
         seconds = 60
         while (seconds > 0) {
@@ -1125,83 +1191,69 @@ private fun IncomingRideCard(
         onExpire(ride)
     }
 
-    GlassCard(padding = 18, borderColor = Lime.copy(alpha = .35f)) {
-        if (!detailsOpen) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(Danger)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("NOVA CORRIDA", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                    Text(ride.value, color = Ink, fontSize = 42.sp, fontWeight = FontWeight.Black)
-                    Text("${ride.distance} • ${ride.duration}", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("NOVA CORRIDA URGENTE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp, fontFamily = AppFont, modifier = Modifier.weight(1f))
+                Box(Modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = .16f)).padding(horizontal = 13.dp, vertical = 8.dp)) {
+                    Text("00:${seconds.toString().padStart(2, '0')}", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, fontFamily = AppFont)
                 }
-                CountdownBadge(seconds)
             }
-            Spacer(Modifier.height(12.dp))
-            StopLine("COLETA", ride.pickup, Lime)
-            StopLine("ENTREGA", ride.neighborhood.ifBlank { "Bairro da entrega" }, Purple2)
-            Spacer(Modifier.height(12.dp))
+        }
+
+        GlassCard(padding = 0, borderColor = Color(0xFFE5EAE4)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                StopLine("COLETA", ride.pickup, Lime)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MiniStat("Distância até coleta", ride.distance, Modifier.weight(1f))
+                    MiniStat("Tempo estimado", ride.duration, Modifier.weight(1f))
+                }
+            }
+            Divider(color = Color(0xFFE5EAE4))
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Valor da corrida", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                        Text(ride.value, color = Lime, fontSize = 36.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    }
+                    StatusPill("Oferta", true)
+                }
+                RealDeliveryMap(
+                    title = "Preview da rota",
+                    subtitle = "${ride.distance} • ${ride.duration}",
+                    pickupAddress = ride.pickup,
+                    dropoffAddress = ride.dropoff.ifBlank { ride.neighborhood },
+                    pickupLat = ride.pickupLat,
+                    pickupLng = ride.pickupLng,
+                    dropoffLat = ride.dropoffLat,
+                    dropoffLng = ride.dropoffLng
+                )
+                StopLine("ENTREGA", ride.dropoff.ifBlank { ride.neighborhood.ifBlank { "Bairro da entrega" } }, Purple2)
+                Text("O endereço completo do cliente aparece conforme a regra operacional da coleta.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Muito longe", "Ocupado", "Outro").forEach { reason ->
+                TinyChip(reason, rejectReason == reason, Modifier.weight(1f)) { rejectReason = if (rejectReason == reason) "" else reason }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = { onReject(ride, rejectReason) }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(20.dp)) {
+                Text("Recusar", color = Danger, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
             Button(
-                onClick = { detailsOpen = true },
-                modifier = Modifier.fillMaxWidth().height(58.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color(0xFF10200A))
-            ) {
-                Text("Ver detalhes", fontWeight = FontWeight.Black)
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Detalhes da corrida", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("${ride.value} • ${ride.distance} • ${ride.duration}", color = Lime, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                }
-                CountdownBadge(seconds)
-            }
-            Spacer(Modifier.height(12.dp))
-            RealDeliveryMap(
-                title = "Mapa da oferta",
-                subtitle = "${ride.distance} • ${ride.duration}",
-                pickupAddress = ride.pickup,
-                dropoffAddress = ride.dropoff.ifBlank { ride.neighborhood },
-                pickupLat = ride.pickupLat,
-                pickupLng = ride.pickupLng,
-                dropoffLat = ride.dropoffLat,
-                dropoffLng = ride.dropoffLng
-            )
-            Spacer(Modifier.height(12.dp))
-            StopLine("COLETA", ride.pickup, Lime)
-            StopLine("ENTREGA", ride.dropoff.ifBlank { ride.neighborhood }, Purple2)
-            Text("Confira coleta, bairro/entrega, distância, tempo e valor antes de aceitar.", color = Muted2, fontSize = 12.sp)
-            Spacer(Modifier.height(12.dp))
-            RideFinancialPanel(ride, compact = true)
-            Spacer(Modifier.height(14.dp))
-            Text("Motivo da recusa (opcional)", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            val reasons = listOf("Muito longe", "Valor baixo", "Ocupado", "Veículo", "Outro")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                reasons.take(3).forEach { reason ->
-                    TinyChip(reason, rejectReason == reason, Modifier.weight(1f)) { rejectReason = if (rejectReason == reason) "" else reason }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                reasons.drop(3).forEach { reason ->
-                    TinyChip(reason, rejectReason == reason, Modifier.weight(1f)) { rejectReason = if (rejectReason == reason) "" else reason }
-                }
-                Spacer(Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = { onReject(ride, rejectReason) }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(18.dp)) {
-                    Text("Recusar", color = Danger, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = { onAccept(ride) },
-                    modifier = Modifier.weight(1.45f).height(58.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color(0xFF10200A))
-                ) {
-                    Text("Aceitar corrida", fontWeight = FontWeight.Black)
-                }
-            }
+                onClick = { onAccept(ride) },
+                modifier = Modifier.weight(1.4f).height(58.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color.White)
+            ) { Text("Aceitar", fontWeight = FontWeight.Black, fontFamily = AppFont) }
         }
     }
 }
@@ -1209,63 +1261,81 @@ private fun IncomingRideCard(
 @Composable
 private fun ActiveRideCard(ride: DriverRide, onOpenNavigator: (pickup: String, dropoff: String) -> Unit, onUpdateRide: (DriverRide, String) -> Unit) {
     val title = when (ride.status) {
-        "accepted" -> "Indo para coleta"
-        "pickup" -> "Na coleta"
-        "delivering" -> "Indo para entrega"
+        "accepted", "ACEITA", "A_CAMINHO_LOJA" -> "Indo para coleta"
+        "pickup", "COLETANDO", "NA_COLETA" -> "Na coleta"
+        "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "Indo para entrega"
         else -> "Corrida em andamento"
     }
     val nextLabel = when (ride.status) {
-        "accepted" -> "Cheguei na coleta"
-        "pickup" -> "Pedido retirado"
-        "delivering" -> "Finalizar entrega"
-        else -> "Atualizar"
+        "accepted", "ACEITA", "A_CAMINHO_LOJA" -> "Cheguei na coleta"
+        "pickup", "COLETANDO", "NA_COLETA" -> "Pedido retirado"
+        "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "Finalizar entrega"
+        else -> "Atualizar etapa"
     }
     val nextStatus = when (ride.status) {
-        "accepted" -> "pickup"
-        "pickup" -> "delivering"
-        "delivering" -> "finished"
+        "accepted", "ACEITA", "A_CAMINHO_LOJA" -> "pickup"
+        "pickup", "COLETANDO", "NA_COLETA" -> "delivering"
+        "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "finished"
         else -> "pickup"
     }
+    val deliveryText = if (ride.status in listOf("delivering", "EM_ROTA", "SAIU_ENTREGA")) {
+        ride.dropoff.ifBlank { ride.neighborhood.ifBlank { "Endereço do cliente" } }
+    } else {
+        ride.neighborhood.ifBlank { "Endereço será liberado após a coleta" }
+    }
 
-    GlassCard(padding = 18, borderColor = Lime.copy(alpha = .42f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("EM ANDAMENTO", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                Text(title, color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
-                Text("Pedido #${ride.orderCode} • ${ride.value}", color = Muted, fontSize = 14.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        GlassCard(padding = 0, borderColor = Color(0xFFE5EAE4)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(Color(0xFFE8F8EC)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Route, contentDescription = null, tint = Lime, modifier = Modifier.size(25.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title, color = Lime, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                        Text("Pedido #${ride.orderCode.ifBlank { ride.id.takeLast(4).uppercase(Locale.ROOT) }} • ${ride.value}", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    StatusPill(ride.status.statusLabel(), true)
+                }
+                RealDeliveryMap(
+                    title = title,
+                    subtitle = "${ride.distance} • ${ride.duration}",
+                    pickupAddress = ride.pickup,
+                    dropoffAddress = if (ride.status in listOf("delivering", "EM_ROTA", "SAIU_ENTREGA")) ride.dropoff else ride.pickup,
+                    pickupLat = ride.pickupLat,
+                    pickupLng = ride.pickupLng,
+                    dropoffLat = ride.dropoffLat,
+                    dropoffLng = ride.dropoffLng,
+                    mode = if (ride.status in listOf("delivering", "EM_ROTA", "SAIU_ENTREGA")) DeliveryMapMode.DRIVER_TO_DROPOFF else DeliveryMapMode.DRIVER_TO_PICKUP
+                )
             }
-            StatusPill(ride.status.statusLabel(), true)
         }
 
-        Spacer(Modifier.height(12.dp))
-        RealDeliveryMap(
-            title = title,
-            subtitle = "${ride.distance} • ${ride.duration}",
-            pickupAddress = ride.pickup,
-            dropoffAddress = ride.dropoff,
-            pickupLat = ride.pickupLat,
-            pickupLng = ride.pickupLng,
-            dropoffLat = ride.dropoffLat,
-            dropoffLng = ride.dropoffLng,
-            mode = if (ride.status == "delivering") DeliveryMapMode.DRIVER_TO_DROPOFF else DeliveryMapMode.DRIVER_TO_PICKUP
-        )
-        Spacer(Modifier.height(12.dp))
-        StopLine("COLETA", ride.pickup, Lime)
-        StopLine("ENTREGA", ride.dropoff, Purple2)
-        Spacer(Modifier.height(12.dp))
+        GlassCard(padding = 16) {
+            StopLine("COLETA", ride.pickup, Lime)
+            Divider(color = Color(0xFFE5EAE4))
+            StopLine("ENTREGA", deliveryText, Purple2)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniStat("Distância", ride.distance, Modifier.weight(1f))
+                MiniStat("Tempo", ride.duration, Modifier.weight(1f))
+            }
+        }
+
         RideFinancialPanel(ride, compact = false)
-        Spacer(Modifier.height(14.dp))
-        Button(
-            onClick = { onOpenNavigator(ride.pickup, if (ride.status == "delivering") ride.dropoff else ride.pickup) },
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White)
-        ) { Text("Iniciar navegação", fontWeight = FontWeight.Black) }
-        Spacer(Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = { onOpenNavigator(ride.pickup, if (ride.status in listOf("delivering", "EM_ROTA", "SAIU_ENTREGA")) ride.dropoff else ride.pickup) },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Icon(Icons.Filled.Route, contentDescription = null, tint = Lime, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Abrir navegação", color = Lime, fontWeight = FontWeight.Black, fontFamily = AppFont)
+        }
         PrimaryButton(nextLabel) { onUpdateRide(ride, nextStatus) }
     }
 }
-
 
 @Composable
 private fun RideFinancialPanel(ride: DriverRide, compact: Boolean) {
@@ -1753,6 +1823,7 @@ private fun GlassCard(padding: Int = 16, borderColor: Color = Color(0xFFE4E8EF),
     Card(
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = PanelSoft),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, borderColor, RoundedCornerShape(28.dp))
@@ -1801,7 +1872,7 @@ private fun PrimaryButton(text: String, enabled: Boolean = true, loading: Boolea
         shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color.White)
     ) {
-        if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Lime)
+        if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)
         else Text(text, fontWeight = FontWeight.Black, fontFamily = AppFont)
     }
 }
@@ -1863,11 +1934,12 @@ private fun StatusPill(text: String, positive: Boolean, modifier: Modifier = Mod
     Box(
         modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(if (positive) LimeDark else Color(0xFF30151E))
+            .background(if (positive) Color(0xFFE9F8ED) else Color(0xFFFFEEF2))
+            .border(1.dp, if (positive) Lime.copy(alpha = .20f) else Danger.copy(alpha = .20f), RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = if (positive) Lime else Color(0xFFFFB5C4), fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = if (positive) LimeDark else Danger, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
     }
 }
 
