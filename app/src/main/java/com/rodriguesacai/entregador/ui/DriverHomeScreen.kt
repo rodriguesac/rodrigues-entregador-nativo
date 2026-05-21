@@ -119,6 +119,7 @@ import coil.compose.AsyncImage
 import com.rodriguesacai.entregador.AppSettings
 import com.rodriguesacai.entregador.R
 import com.rodriguesacai.entregador.PermissionStatusReader
+import com.rodriguesacai.entregador.PermissionStatus
 import com.rodriguesacai.entregador.RodriguesFonts
 import com.rodriguesacai.entregador.data.AppCarouselBanner
 import com.rodriguesacai.entregador.data.DriverHistory
@@ -1866,6 +1867,7 @@ private fun HistoryDetailLine(label: String, value: String, color: Color) {
     }
 }
 
+
 @Composable
 private fun AccountContent(
     profile: DriverProfile,
@@ -1882,106 +1884,97 @@ private fun AccountContent(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    var page by remember { mutableStateOf("main") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var pix by remember { mutableStateOf(profile.pixKey) }
     var bank by remember { mutableStateOf(profile.bankName) }
     var payoutType by remember { mutableStateOf("Pix") }
-    var changeRequest by remember { mutableStateOf("") }
+    var changeType by remember { mutableStateOf("Telefone") }
+    var changeCurrent by remember { mutableStateOf(profile.phone.ifBlank { "Não informado" }) }
+    var changeNewValue by remember { mutableStateOf("") }
+    var changeReason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var permissionStatus by remember { mutableStateOf(PermissionStatusReader.read(context)) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        GlassCard(padding = 18) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(profile.name, profile.photoUrl)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(profile.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = AppFont)
-                    Text("Verificado profissional", color = Lime, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+    fun sendChangeRequest() {
+        localError = ""
+        message = ""
+        val body = buildString {
+            append("Tipo: ").append(changeType).append("\n")
+            append("Atual: ").append(changeCurrent.ifBlank { "Não informado" }).append("\n")
+            append("Novo: ").append(changeNewValue.ifBlank { "Não informado" }).append("\n")
+            append("Motivo: ").append(changeReason.ifBlank { "Sem motivo informado" })
+        }
+        loading = true
+        DriverRepository.requestProfileChange(
+            context = context,
+            requestText = body,
+            onSuccess = {
+                loading = false
+                changeNewValue = ""
+                changeReason = ""
+                message = "Solicitação enviada para análise da operação."
+            },
+            onError = {
+                loading = false
+                localError = it
+            }
+        )
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        when (page) {
+            "main" -> MoreHubScreen(
+                profile = profile,
+                online = online,
+                hideValues = hideValues,
+                permissionStatus = permissionStatus,
+                onToggleValues = onToggleValues,
+                onOpen = { page = it },
+                onLogout = onLogout
+            )
+
+            "profile" -> ProfileReferenceScreen(
+                profile = profile,
+                online = online,
+                onBack = { page = "main" },
+                onRequestChange = {
+                    changeType = "Telefone"
+                    changeCurrent = profile.phone.ifBlank { "Não informado" }
+                    page = "change"
                 }
-            }
-            Spacer(Modifier.height(16.dp))
-            InfoLine("Telefone", profile.phone.ifBlank { "Não informado" })
-            InfoLine("Conta", "Verificada")
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) { Text("Sair da conta", color = Muted) }
-        }
+            )
 
-        GlassCard(padding = 18) {
-            SectionTitle("Preferências", "Tema e privacidade dos valores.")
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeButton("Escuro", themeMode == AppSettings.THEME_DARK, Modifier.weight(1f)) { onThemeChanged(AppSettings.THEME_DARK) }
-                ModeButton("Claro", themeMode == AppSettings.THEME_LIGHT, Modifier.weight(1f)) { onThemeChanged(AppSettings.THEME_LIGHT) }
-            }
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = onToggleValues,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = FillSoft, contentColor = Ink)
-            ) {
-                Icon(if (hideValues) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = null, tint = Lime, modifier = Modifier.size(19.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(if (hideValues) "Mostrar valores" else "Ocultar valores", fontWeight = FontWeight.Black)
-            }
-        }
-
-        GlassCard(padding = 18) {
-            SectionTitle("Recebimento", "Pix e banco podem ser salvos direto. O gestor confere depois.")
-            Spacer(Modifier.height(12.dp))
-            AppField(pix, { pix = it }, "Chave Pix")
-            Spacer(Modifier.height(10.dp))
-            AppField(bank, { bank = it }, "Banco")
-            Spacer(Modifier.height(10.dp))
-            AppField(payoutType, { payoutType = it }, "Tipo de repasse")
-            Spacer(Modifier.height(12.dp))
-            PrimaryButton("Salvar recebimento", enabled = !loading, loading = loading) {
-                localError = ""
-                message = ""
-                loading = true
-                DriverRepository.updatePayoutData(
-                    context = context,
-                    pixKey = pix,
-                    bankName = bank,
-                    payoutType = payoutType,
-                    onSuccess = {
-                        loading = false
-                        message = "Recebimento salvo. Conferência pendente no gestor."
-                        onProfileChanged()
-                    },
-                    onError = {
-                        loading = false
-                        localError = it
-                    }
-                )
-            }
-        }
-
-        GlassCard(padding = 18) {
-            SectionTitle("Senha de acesso", "Altere sua senha quando precisar.")
-            Spacer(Modifier.height(12.dp))
-            AppField(password, { password = it }, "Nova senha", KeyboardType.Password, PasswordVisualTransformation())
-            Spacer(Modifier.height(10.dp))
-            AppField(confirmPassword, { confirmPassword = it }, "Confirmar senha", KeyboardType.Password, PasswordVisualTransformation())
-            Spacer(Modifier.height(12.dp))
-            PrimaryButton("Salvar senha", enabled = !loading, loading = loading) {
-                localError = ""
-                message = ""
-                if (password != confirmPassword) {
-                    localError = "As senhas não conferem."
-                } else {
+            "payout" -> PixBankReferenceScreen(
+                pix = pix,
+                bank = bank,
+                payoutType = payoutType,
+                loading = loading,
+                onPix = { pix = it },
+                onBank = { bank = it },
+                onPayout = { payoutType = it },
+                onBack = { page = "main" },
+                onSave = {
+                    localError = ""
+                    message = ""
                     loading = true
-                    DriverRepository.updateAccessPassword(
+                    DriverRepository.updatePayoutData(
                         context = context,
-                        newPassword = password,
+                        pixKey = pix,
+                        bankName = bank,
+                        payoutType = payoutType,
                         onSuccess = {
                             loading = false
-                            password = ""
-                            confirmPassword = ""
-                            message = "Senha atualizada com sucesso."
+                            message = "Recebimento salvo. Conferência pendente no gestor."
                             onProfileChanged()
                         },
                         onError = {
@@ -1989,52 +1982,505 @@ private fun AccountContent(
                             localError = it
                         }
                     )
+                },
+                onRequestChange = {
+                    changeType = "Pix"
+                    changeCurrent = pix.ifBlank { "Não informado" }
+                    page = "change"
                 }
-            }
-        }
+            )
 
-        GlassCard(padding = 18) {
-            SectionTitle("Solicitar alteração", "Telefone e e-mail passam por aprovação do gestor.")
-            Spacer(Modifier.height(12.dp))
-            AppField(changeRequest, { changeRequest = it }, "O que deseja alterar?")
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(
-                enabled = !loading,
-                onClick = {
+            "change" -> ChangeRequestReferenceScreen(
+                changeType = changeType,
+                currentValue = changeCurrent,
+                newValue = changeNewValue,
+                reason = changeReason,
+                loading = loading,
+                onBack = { page = "main" },
+                onType = {
+                    changeType = it
+                    changeCurrent = when (it) {
+                        "Telefone" -> profile.phone.ifBlank { "Não informado" }
+                        "Pix" -> pix.ifBlank { "Não informado" }
+                        "Banco" -> bank.ifBlank { "Não informado" }
+                        else -> "Não informado"
+                    }
+                },
+                onNewValue = { changeNewValue = it },
+                onReason = { changeReason = it },
+                onSubmit = { sendChangeRequest() }
+            )
+
+            "notifications" -> NotificationsReferenceScreen(
+                onBack = { page = "main" }
+            )
+
+            "permissions" -> PermissionsReferenceScreen(
+                permissionStatus = permissionStatus,
+                onRefresh = { permissionStatus = PermissionStatusReader.read(context) },
+                onBack = { page = "main" },
+                onOpenNotificationSettings = onOpenNotificationSettings,
+                onOpenLocationSettings = onOpenLocationSettings,
+                onOpenFullScreenSettings = onOpenFullScreenSettings,
+                onOpenBatterySettings = onOpenBatterySettings
+            )
+
+            "access" -> AccessReferenceScreen(
+                password = password,
+                confirmPassword = confirmPassword,
+                loading = loading,
+                onPassword = { password = it },
+                onConfirm = { confirmPassword = it },
+                onBack = { page = "main" },
+                onSave = {
                     localError = ""
                     message = ""
-                    loading = true
-                    DriverRepository.requestProfileChange(
-                        context = context,
-                        requestText = changeRequest,
-                        onSuccess = {
-                            loading = false
-                            changeRequest = ""
-                            message = "Solicitação enviada ao gestor."
-                        },
-                        onError = {
-                            loading = false
-                            localError = it
-                        }
-                    )
-                },
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(18.dp)
-            ) { Text("Enviar solicitação", color = Muted) }
-        }
+                    if (password != confirmPassword) {
+                        localError = "As senhas não conferem."
+                    } else {
+                        loading = true
+                        DriverRepository.updateAccessPassword(
+                            context = context,
+                            newPassword = password,
+                            onSuccess = {
+                                loading = false
+                                password = ""
+                                confirmPassword = ""
+                                message = "Senha atualizada com sucesso."
+                                onProfileChanged()
+                            },
+                            onError = {
+                                loading = false
+                                localError = it
+                            }
+                        )
+                    }
+                }
+            )
 
-        SettingsCenterContent(
-            onOpenNotificationSettings = onOpenNotificationSettings,
-            onOpenLocationSettings = onOpenLocationSettings,
-            onOpenFullScreenSettings = onOpenFullScreenSettings,
-            onOpenBatterySettings = onOpenBatterySettings
-        )
+            "settings" -> SettingsReferenceScreen(
+                themeMode = themeMode,
+                onThemeChanged = onThemeChanged,
+                onBack = { page = "main" }
+            )
+
+            "support" -> SupportReferenceScreen(onBack = { page = "main" })
+        }
 
         if (localError.isNotBlank()) StatusMessage(localError, true)
         if (message.isNotBlank()) StatusMessage(message, false)
+        Spacer(Modifier.height(8.dp))
     }
 }
 
+@Composable
+private fun MoreHubScreen(
+    profile: DriverProfile,
+    online: Boolean,
+    hideValues: Boolean,
+    permissionStatus: PermissionStatus,
+    onToggleValues: () -> Unit,
+    onOpen: (String) -> Unit,
+    onLogout: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Mais", "Conta, recebimento e ajustes")
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, BorderSoft, RoundedCornerShape(28.dp))
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(profile.name, profile.photoUrl)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(profile.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.width(7.dp))
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Lime, modifier = Modifier.size(18.dp))
+                        }
+                        Text(if (online) "Entregador ativo" else "Entregador indisponível", color = if (online) Lime else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                    }
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Muted2, modifier = Modifier.clickable { onOpen("profile") })
+                }
+                Divider(color = BorderSoft)
+                AccountDataLine(Icons.Filled.Person, "Telefone", profile.phone.ifBlank { "Não informado" })
+                AccountDataLine(Icons.Filled.Shield, "Status cadastral", if (profile.approved) "Aprovado" else "Pendente")
+                AccountDataLine(Icons.Filled.AccountBalanceWallet, "Recebimento", if (profile.pixKey.isNotBlank()) "Pix cadastrado" else "Cadastrar Pix")
+            }
+        }
+
+        SectionTitle("Acesso rápido", "Telas do entregador organizadas como no padrão visual.")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MoreMenuTile("Perfil", "Dados pessoais", Icons.Filled.Person, Modifier.weight(1f)) { onOpen("profile") }
+            MoreMenuTile("Pix/banco", "Recebimento", Icons.Filled.AccountBalanceWallet, Modifier.weight(1f)) { onOpen("payout") }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MoreMenuTile("Notificações", "Avisos e operação", Icons.Filled.Notifications, Modifier.weight(1f)) { onOpen("notifications") }
+            MoreMenuTile("Permissões", "Checklist", Icons.Filled.Shield, Modifier.weight(1f)) { onOpen("permissions") }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MoreMenuTile("Alteração", "Telefone, Pix ou banco", Icons.Filled.ReceiptLong, Modifier.weight(1f)) { onOpen("change") }
+            MoreMenuTile("Suporte", "Ajuda e problemas", Icons.Filled.SupportAgent, Modifier.weight(1f)) { onOpen("support") }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = if (permissionStatus.ready) Color(0xFFEAF8EE) else Color(0xFFFFF7E8)),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, if (permissionStatus.ready) Lime.copy(alpha = .16f) else Warning.copy(alpha = .25f), RoundedCornerShape(24.dp))
+        ) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                    Icon(if (permissionStatus.ready) Icons.Filled.CheckCircle else Icons.Filled.ErrorOutline, contentDescription = null, tint = if (permissionStatus.ready) Lime else Warning, modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(if (permissionStatus.ready) "App pronto para corridas" else "Finalize as permissões", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text(if (permissionStatus.ready) "Alertas, localização e bateria estão configurados." else "Configure notificações, localização e bateria sem restrição.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Muted2, modifier = Modifier.clickable { onOpen("permissions") })
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onToggleValues, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp)) {
+                Icon(if (hideValues) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = null, tint = Lime, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (hideValues) "Mostrar" else "Ocultar", color = Lime, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
+            OutlinedButton(onClick = onLogout, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp)) {
+                Text("Sair da conta", color = Danger, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileReferenceScreen(profile: DriverProfile, online: Boolean, onBack: () -> Unit, onRequestChange: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Perfil", "Dados do entregador", onBack)
+        GlassCard(padding = 18) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(profile.name, profile.photoUrl)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(profile.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(7.dp))
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Lime, modifier = Modifier.size(18.dp))
+                    }
+                    Text(if (online) "Entregador ativo" else "Indisponível no momento", color = if (online) Lime else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            AccountDataLine(Icons.Filled.Person, "Telefone", profile.phone.ifBlank { "Não informado" })
+            AccountDataLine(Icons.Filled.Place, "Cidade", "Definida pela operação")
+            AccountDataLine(Icons.Filled.TwoWheeler, "Veículo", "Moto")
+            AccountDataLine(Icons.Filled.Shield, "Status cadastral", if (profile.approved) "Aprovado" else "Pendente")
+        }
+        StatusInfoCard("Alterações sensíveis", "Telefone e e-mail precisam de aprovação do gestor antes de mudar no cadastro.", Lime)
+        PrimaryButton("Solicitar alteração") { onRequestChange() }
+    }
+}
+
+@Composable
+private fun PixBankReferenceScreen(
+    pix: String,
+    bank: String,
+    payoutType: String,
+    loading: Boolean,
+    onPix: (String) -> Unit,
+    onBank: (String) -> Unit,
+    onPayout: (String) -> Unit,
+    onBack: () -> Unit,
+    onSave: () -> Unit,
+    onRequestChange: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Recebimento", "Pix e dados bancários", onBack)
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF8EE)), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Lime.copy(alpha = .16f), RoundedCornerShape(24.dp))) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(18.dp)).background(Lime.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Lime, modifier = Modifier.size(26.dp)) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(if (pix.isNotBlank()) "Chave Pix ativa" else "Cadastre sua chave Pix", color = LimeDark, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Seus repasses usam estes dados. A conta precisa estar no nome do titular.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+            }
+        }
+        GlassCard(padding = 18) {
+            Text("Chave Pix", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Spacer(Modifier.height(8.dp))
+            AppField(pix, onPix, "Digite sua chave Pix")
+            Spacer(Modifier.height(12.dp))
+            Text("Dados bancários", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Spacer(Modifier.height(8.dp))
+            AppField(bank, onBank, "Banco")
+            Spacer(Modifier.height(10.dp))
+            AppField(payoutType, onPayout, "Tipo de repasse")
+            Spacer(Modifier.height(14.dp))
+            StatusInfoCard("Titularidade obrigatória", "Não aceitamos contas de terceiros para repasse.", Lime)
+        }
+        PrimaryButton("Salvar dados", enabled = !loading, loading = loading) { onSave() }
+        OutlinedButton(onClick = onRequestChange, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) {
+            Text("Solicitar alteração", color = Lime, fontWeight = FontWeight.Black, fontFamily = AppFont)
+        }
+    }
+}
+
+@Composable
+private fun ChangeRequestReferenceScreen(
+    changeType: String,
+    currentValue: String,
+    newValue: String,
+    reason: String,
+    loading: Boolean,
+    onBack: () -> Unit,
+    onType: (String) -> Unit,
+    onNewValue: (String) -> Unit,
+    onReason: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Solicitação de alteração", "Envie para análise da operação", onBack)
+        GlassCard(padding = 18) {
+            Text("Selecione o tipo de alteração", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Telefone", "E-mail", "Pix", "Banco").forEach { item ->
+                    ModeButton(item, changeType == item, Modifier.weight(1f)) { onType(item) }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("Valor atual", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFF3F6F1)).padding(14.dp)) {
+                Text(currentValue, color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            }
+            Spacer(Modifier.height(12.dp))
+            AppField(newValue, onNewValue, "Novo valor")
+            Spacer(Modifier.height(10.dp))
+            AppField(reason, onReason, "Motivo da alteração")
+        }
+        StatusInfoCard("Análise obrigatória", "Sua solicitação será analisada pelo gestor antes de alterar o cadastro.", Lime)
+        PrimaryButton("Enviar solicitação", enabled = !loading, loading = loading) { onSubmit() }
+    }
+}
+
+@Composable
+private fun NotificationsReferenceScreen(onBack: () -> Unit) {
+    var filter by remember { mutableStateOf("Todas") }
+    val rows = listOf(
+        Triple("Nova corrida disponível", "Agora mesmo • toque para abrir", Lime),
+        Triple("Seu repasse foi programado", "Hoje • crédito previsto até 12:00", Lime),
+        Triple("Atualize seus dados bancários", "Ontem • necessário para próximo repasse", Warning),
+        Triple("Cadastro atualizado com sucesso", "Ontem • suas informações estão em dia", Blue),
+        Triple("Nenhuma nova mensagem do suporte", "2 dias atrás • tudo certo por aqui", Muted2)
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Notificações", "Avisos da operação e sistema", onBack)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Todas", "Operação", "Sistema").forEach { item -> ModeButton(item, filter == item, Modifier.weight(1f)) { filter = item } }
+        }
+        rows.forEach { NotificationCard(it.first, it.second, it.third) }
+        PrimaryButton("Marcar todas como lidas") { }
+    }
+}
+
+@Composable
+private fun PermissionsReferenceScreen(
+    permissionStatus: PermissionStatus,
+    onRefresh: () -> Unit,
+    onBack: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
+    onOpenFullScreenSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        ScreenTopTitle("Permissões do app", "Checklist para receber corridas", onBack)
+        RodriguesLogoBlock()
+        Text("Precisamos de algumas permissões para você receber corridas com segurança e eficiência.", color = Muted, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, textAlign = TextAlign.Center)
+        GlassCard(padding = 0) {
+            PermissionRow("Notificações", permissionStatus.notifications) { onOpenNotificationSettings() }
+            Divider(color = BorderSoft)
+            PermissionRow("Localização", permissionStatus.location) { onOpenLocationSettings() }
+            Divider(color = BorderSoft)
+            PermissionRow("Alerta em tela cheia", permissionStatus.fullScreenIntent) { onOpenFullScreenSettings() }
+            Divider(color = BorderSoft)
+            PermissionRow("Bateria sem restrição", permissionStatus.batteryUnrestricted) { onOpenBatterySettings() }
+        }
+        PrimaryButton("Configurar permissões") { onRefresh() }
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) { Text("Continuar", color = Lime, fontWeight = FontWeight.Black, fontFamily = AppFont) }
+    }
+}
+
+@Composable
+private fun AccessReferenceScreen(
+    password: String,
+    confirmPassword: String,
+    loading: Boolean,
+    onPassword: (String) -> Unit,
+    onConfirm: (String) -> Unit,
+    onBack: () -> Unit,
+    onSave: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        ScreenTopTitle("Criar senha", "Segurança da conta", onBack)
+        RodriguesLogoBlock()
+        Box(Modifier.size(118.dp).clip(RoundedCornerShape(36.dp)).background(Color(0xFFEAF8EE)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = Lime, modifier = Modifier.size(62.dp))
+        }
+        Text("Criar sua senha", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+        Text("Defina uma senha segura para acessar sua conta.", color = Muted, textAlign = TextAlign.Center, fontSize = 14.sp, fontFamily = AppFont)
+        GlassCard(padding = 18) {
+            AppField(password, onPassword, "Nova senha", KeyboardType.Password, PasswordVisualTransformation())
+            Spacer(Modifier.height(10.dp))
+            AppField(confirmPassword, onConfirm, "Confirmar senha", KeyboardType.Password, PasswordVisualTransformation())
+            Spacer(Modifier.height(12.dp))
+            listOf("Mínimo de 8 caracteres", "Pelo menos uma letra maiúscula", "Pelo menos um número", "Pelo menos um caractere especial").forEach {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Lime, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(it, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+                Spacer(Modifier.height(5.dp))
+            }
+        }
+        PrimaryButton("Salvar e continuar", enabled = !loading, loading = loading) { onSave() }
+    }
+}
+
+@Composable
+private fun SettingsReferenceScreen(themeMode: String, onThemeChanged: (String) -> Unit, onBack: () -> Unit) {
+    val context = LocalContext.current
+    var navPreference by remember { mutableStateOf(AppSettings.getNavigationApp(context)) }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ScreenTopTitle("Preferências", "Navegação e aparência", onBack)
+        GlassCard(padding = 18) {
+            SectionTitle("Navegação padrão", "Escolha o app usado nas rotas.")
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModeButton("Celular", navPreference == AppSettings.NAV_AUTO, Modifier.weight(1f)) { navPreference = AppSettings.NAV_AUTO; AppSettings.setNavigationApp(context, navPreference) }
+                ModeButton("Maps", navPreference == AppSettings.NAV_GOOGLE, Modifier.weight(1f)) { navPreference = AppSettings.NAV_GOOGLE; AppSettings.setNavigationApp(context, navPreference) }
+                ModeButton("Waze", navPreference == AppSettings.NAV_WAZE, Modifier.weight(1f)) { navPreference = AppSettings.NAV_WAZE; AppSettings.setNavigationApp(context, navPreference) }
+            }
+        }
+        GlassCard(padding = 18) {
+            SectionTitle("Aparência", "Tema do aplicativo.")
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModeButton("Claro", themeMode == AppSettings.THEME_LIGHT, Modifier.weight(1f)) { onThemeChanged(AppSettings.THEME_LIGHT) }
+                ModeButton("Escuro", themeMode == AppSettings.THEME_DARK, Modifier.weight(1f)) { onThemeChanged(AppSettings.THEME_DARK) }
+            }
+        }
+        StatusInfoCard("Versão do app", "6.6.0 visual completo aplicado em todas as áreas principais.", Blue)
+    }
+}
+
+@Composable
+private fun SupportReferenceScreen(onBack: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        ScreenTopTitle("Suporte", "Ajuda, estabilidade e operação", onBack)
+        RodriguesLogoBlock()
+        StateVisualBlock(Icons.Filled.CloudOff, "Erro Firebase", "Se não conseguir carregar dados, tente atualizar ou use o último dado salvo.", Danger)
+        StateVisualBlock(Icons.Filled.CloudOff, "Sem internet", "O app tenta reconectar automaticamente em segundo plano.", Blue)
+        StateVisualBlock(Icons.Filled.Shield, "Permissão negada", "Fale com a operação caso sua conta não tenha acesso a alguma função.", Warning)
+        StateVisualBlock(Icons.Filled.Schedule, "Manutenção", "Acompanhe avisos pela central de notificações quando o sistema voltar.", Lime)
+    }
+}
+
+@Composable
+private fun ScreenTopTitle(title: String, subtitle: String, onBack: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) {
+            HeaderBackCircle(onBack)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f), horizontalAlignment = if (onBack == null) Alignment.Start else Alignment.Start) {
+            Text(title, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(subtitle, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+        }
+    }
+}
+
+@Composable
+private fun MoreMenuTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier.border(1.dp, BorderSoft, RoundedCornerShape(24.dp)).clickable { onClick() }
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFEAF8EE)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = Lime, modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1)
+                Text(subtitle, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountDataLine(icon: ImageVector, label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = Lime, modifier = Modifier.size(19.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, modifier = Modifier.weight(1f))
+        Text(value, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun StatusInfoCard(title: String, message: String, color: Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = color.copy(alpha = .08f)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().border(1.dp, color.copy(alpha = .18f), RoundedCornerShape(20.dp))) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Shield, contentDescription = null, tint = color, modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(message, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationCard(title: String, subtitle: String, color: Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().border(1.dp, BorderSoft, RoundedCornerShape(22.dp))) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(50.dp).clip(CircleShape).background(color.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+                Icon(if (color == Warning) Icons.Filled.ErrorOutline else Icons.Filled.Notifications, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(subtitle, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            }
+            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        }
+    }
+}
+
+@Composable
+private fun StateVisualBlock(icon: ImageVector, title: String, message: String, color: Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().border(1.dp, BorderSoft, RoundedCornerShape(24.dp))) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(58.dp).clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(30.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(message, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+            }
+        }
+    }
+}
 
 @Composable
 private fun SettingsCenterContent(
@@ -2087,7 +2533,7 @@ private fun SettingsCenterContent(
             SettingButton("Problemas com corrida", "Relatar ocorrência")
         }
         SettingsSection("Sobre") {
-            SettingButton("Versão do app", "6.5.0 reconstrução visual fiel")
+            SettingButton("Versão do app", "6.6.0 todas as telas")
             SettingButton("Termos e privacidade", "Documentos do app")
         }
     }

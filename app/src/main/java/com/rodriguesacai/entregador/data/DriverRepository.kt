@@ -137,7 +137,7 @@ object DriverRepository {
             "senhaCriadaEm" to now,
             "origemCadastro" to "android_native",
             "platform" to "android_native",
-            "appVersion" to "6.5.0",
+            "appVersion" to "6.6.0",
             "criadoEm" to now,
             "createdAt" to now,
             "atualizadoEm" to now,
@@ -180,7 +180,7 @@ object DriverRepository {
                 "passwordUpdatedAt" to now,
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "6.5.0"
+                "appVersion" to "6.6.0"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -220,7 +220,7 @@ object DriverRepository {
                 "recebimentoStatus" to "PENDENTE_CONFERENCIA",
                 "atualizadoEm" to now,
                 "updatedAt" to now,
-                "appVersion" to "6.5.0"
+                "appVersion" to "6.6.0"
             ),
             SetOptions.merge()
         ).addOnSuccessListener {
@@ -259,7 +259,7 @@ object DriverRepository {
                 "status" to "PENDENTE",
                 "prioridade" to "NORMAL",
                 "origem" to "android_native",
-                "appVersion" to "6.5.0",
+                "appVersion" to "6.6.0",
                 "criadoEm" to now,
                 "createdAt" to now
             )
@@ -361,7 +361,7 @@ object DriverRepository {
                 "ultimoLoginEm" to Timestamp.now(),
                 "lastLoginAt" to Timestamp.now(),
                 "platform" to "android_native",
-                "appVersion" to "6.5.0"
+                "appVersion" to "6.6.0"
             ),
             SetOptions.merge()
         )
@@ -383,7 +383,7 @@ object DriverRepository {
             "atualizadoEm" to Timestamp.now(),
             "updatedAt" to Timestamp.now(),
             "platform" to "android_native",
-            "appVersion" to "6.5.0"
+            "appVersion" to "6.6.0"
         )
         db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
         if (online) saveMessagingToken(context)
