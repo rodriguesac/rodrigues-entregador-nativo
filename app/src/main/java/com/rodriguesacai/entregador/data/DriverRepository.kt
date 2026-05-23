@@ -17,7 +17,7 @@ import java.util.Locale
 import java.time.Instant
 
 object DriverRepository {
-    private const val APP_VERSION = "6.10.0"
+    private const val APP_VERSION = "6.10.1"
     private const val PREFS = "driver_session"
     private const val KEY_ID = "driver_id"
     private const val KEY_NAME = "driver_name"
@@ -35,6 +35,7 @@ object DriverRepository {
     private val MISSION_COLLECTIONS = listOf("rotas_entrega", "pedidos", "rides")
     private val CAROUSEL_COLLECTIONS = listOf("app_carousel_banners", "carrosselApp", "bannersApp", "appBanners", "bannersEntregador", "carrossel_entregador", "entregadorBanners")
     private val NOTICE_COLLECTIONS = listOf("app_notifications", "notificacoesEntregador", "avisosEntregador", "appAvisos", "operacaoAvisos")
+    private val MACHINE_COLLECTIONS = listOf("maquininhas", "maquininhasEntrega", "cardMachines")
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
@@ -754,6 +755,248 @@ object DriverRepository {
         return CompositeListenerRegistration(listOf(historyRegistration, driverWalletRegistration, payoutByUid, payoutById))
     }
 
+
+    fun listenDriverProfile(
+        context: Context,
+        onProfile: (DriverProfile) -> Unit,
+        onError: (String) -> Unit = {}
+    ): ListenerRegistration? {
+        val session = currentSession(context) ?: return null
+        return db.collection(session.collectionName).document(session.id).addSnapshotListener { doc, err ->
+            if (err != null) {
+                onError(err.message ?: "Erro ao ouvir perfil do entregador.")
+                return@addSnapshotListener
+            }
+            if (doc != null && doc.exists()) {
+                onProfile(doc.toProfile(session.collectionName))
+            }
+        }
+    }
+
+    fun listenMachineOptions(
+        onMachines: (List<PaymentMachine>) -> Unit,
+        onError: (String) -> Unit = {}
+    ): ListenerRegistration {
+        val state = mutableMapOf<String, List<PaymentMachine>>()
+        fun emit() {
+            val machines = state.values.flatten()
+                .distinctBy { "${it.collectionName}:${it.id}" }
+                .filter { it.active }
+                .sortedWith(compareBy<PaymentMachine> { it.order }.thenBy { it.name.lowercase(Locale.ROOT) })
+            onMachines(machines)
+        }
+        val regs = MACHINE_COLLECTIONS.map { collectionName ->
+            db.collection(collectionName).limit(120).addSnapshotListener { snap, err ->
+                if (err != null) {
+                    onError(err.message ?: "Erro ao ouvir maquininhas.")
+                    return@addSnapshotListener
+                }
+                state[collectionName] = snap?.documents.orEmpty().mapNotNull { doc ->
+                    runCatching { doc.toPaymentMachine(collectionName) }.getOrNull()
+                }
+                emit()
+            }
+        }
+        return CompositeListenerRegistration(regs)
+    }
+
+    fun listenAppRuntimeConfig(
+        onConfig: (AppRuntimeConfig) -> Unit,
+        onError: (String) -> Unit = {}
+    ): ListenerRegistration {
+        val docs = listOf(
+            db.collection("app_config").document("entregador"),
+            db.collection("app_config").document("global"),
+            db.collection("app_config").document("manutencao")
+        )
+        val state = mutableMapOf<String, AppRuntimeConfig>()
+        fun emit() {
+            val configs = state.values.toList()
+            val maintenance = configs.firstOrNull { it.maintenanceActive }
+            val chosen = maintenance ?: configs.firstOrNull { it.forceUpdate || it.globalAlert.isNotBlank() } ?: configs.firstOrNull() ?: AppRuntimeConfig()
+            onConfig(chosen)
+        }
+        val regs = docs.map { ref ->
+            ref.addSnapshotListener { doc, err ->
+                if (err != null) {
+                    onError(err.message ?: "Erro ao ouvir configurações do app.")
+                    return@addSnapshotListener
+                }
+                state[ref.path] = if (doc != null && doc.exists()) doc.toAppRuntimeConfig(ref.id) else AppRuntimeConfig(id = ref.id)
+                emit()
+            }
+        }
+        return CompositeListenerRegistration(regs)
+    }
+
+    fun markNotificationRead(
+        context: Context,
+        notice: AppNotice,
+        onDone: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val profile = currentSession(context)
+        if (profile == null) {
+            onError("Faça login para marcar notificação como lida.")
+            return
+        }
+        val now = Timestamp.now()
+        val readId = "${profile.id}_${notice.collectionName}_${notice.id}".replace(Regex("[^A-Za-z0-9_-]"), "_").take(180)
+        db.collection("notificacoesEntregadorLidas").document(readId).set(
+            mapOf(
+                "entregadorUid" to profile.id,
+                "entregadorId" to profile.id,
+                "notificationId" to notice.id,
+                "notificationCollection" to notice.collectionName,
+                "title" to notice.title,
+                "category" to notice.category,
+                "lido" to true,
+                "read" to true,
+                "lidoEm" to now,
+                "readAt" to now,
+                "origem" to "APP_ENTREGADOR",
+                "appVersion" to APP_VERSION
+            ),
+            SetOptions.merge()
+        ).addOnSuccessListener { onDone() }
+            .addOnFailureListener { onError(it.message ?: "Falha ao marcar notificação como lida.") }
+    }
+
+    fun calculateSettlementPreview(input: PaymentSettlementInput, machine: PaymentMachine? = null): PaymentSettlementPreview {
+        val gross = input.orderTotal.coerceAtLeast(0.0)
+        val driverFee = input.driverFee.coerceAtLeast(0.0)
+        val method = input.paymentMethod.upperOrTrim()
+        val transaction = input.transactionType.upperOrTrim()
+        val percent = when {
+            method.contains("MAQUIN") || method.contains("CART") || transaction.contains("DEBIT") || transaction.contains("DÉBIT") -> {
+                when {
+                    transaction.contains("DEBIT") || transaction.contains("DÉBIT") -> machine?.debitFeePercent ?: input.manualFeePercent
+                    transaction.contains("PARCEL") -> machine?.installmentFeePercent ?: input.manualFeePercent
+                    transaction.contains("TICKET") -> machine?.ticketFeePercent ?: input.manualFeePercent
+                    else -> machine?.creditFeePercent ?: input.manualFeePercent
+                }
+            }
+            else -> 0.0
+        }.coerceAtLeast(0.0)
+        val machineFee = if (gross > 0.0) gross * (percent / 100.0) else 0.0
+        val liquid = (gross - machineFee).coerceAtLeast(0.0)
+        val receivedByDriver = input.receivedByDriver || method.contains("DINHEIRO") || method.contains("MAQUIN") || method.contains("CART") || input.receivedBy.upperOrTrim() in setOf("ENTREGADOR", "MOTOBOY", "DRIVER")
+        val amountToRepay = if (receivedByDriver) (liquid - driverFee).coerceAtLeast(0.0) else 0.0
+        val amountToReceive = if (receivedByDriver) 0.0 else driverFee
+        val cash = if (method.contains("DINHEIRO")) gross else 0.0
+        val card = if (method.contains("MAQUIN") || method.contains("CART") || transaction.isNotBlank()) gross else 0.0
+        val pix = if (method.contains("PIX")) gross else 0.0
+        return PaymentSettlementPreview(
+            grossAmount = gross,
+            driverFee = driverFee,
+            machineFee = machineFee,
+            machineFeePercent = percent,
+            liquidAmount = liquid,
+            amountToRepay = amountToRepay,
+            amountToReceive = amountToReceive,
+            cashAmount = cash,
+            cardAmount = card,
+            pixAmount = pix,
+            status = "AGUARDANDO_CONFERENCIA"
+        )
+    }
+
+    fun savePaymentSettlementForRide(
+        context: Context,
+        rideId: String,
+        input: PaymentSettlementInput,
+        onDone: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val profile = currentSession(context)
+        if (profile == null) {
+            onError("Faça login antes de registrar o acerto.")
+            return
+        }
+        fun persist(machine: PaymentMachine?) {
+            findMissionDocument(rideId, onFound = { doc ->
+                val preview = calculateSettlementPreview(input, machine)
+                val now = Timestamp.now()
+                val acerto = linkedMapOf<String, Any?>(
+                    "status" to preview.status,
+                    "origem" to "APP_ENTREGADOR",
+                    "entregadorUid" to profile.id,
+                    "entregadorId" to profile.id,
+                    "entregadorNome" to profile.name,
+                    "pedidoId" to rideId,
+                    "corridaId" to rideId,
+                    "formaPagamento" to input.paymentMethod,
+                    "tipoTransacao" to input.transactionType,
+                    "maquininhaId" to input.machineId,
+                    "maquininhaNome" to (machine?.name ?: input.machineName),
+                    "recebidoPor" to if (preview.amountToRepay > 0.0) "ENTREGADOR" else input.receivedBy.ifBlank { "SISTEMA" },
+                    "valorBruto" to preview.grossAmount,
+                    "valorLiquido" to preview.liquidAmount,
+                    "recebidoPeloEntregador" to if (preview.amountToRepay > 0.0) preview.grossAmount else 0.0,
+                    "taxaMotoboy" to preview.driverFee,
+                    "taxasMaquininha" to preview.machineFee,
+                    "taxaMaquininhaPercentual" to preview.machineFeePercent,
+                    "valorARepassar" to preview.amountToRepay,
+                    "valorAReceber" to preview.amountToReceive,
+                    "dinheiro" to preview.cashAmount,
+                    "cartao" to preview.cardAmount,
+                    "pix" to preview.pixAmount,
+                    "observacao" to input.note,
+                    "precisaConferencia" to true,
+                    "criadoEm" to now,
+                    "createdAt" to now,
+                    "atualizadoEm" to now,
+                    "updatedAt" to now,
+                    "appVersion" to APP_VERSION
+                )
+                val missionPayload = mapOf(
+                    "pagamentoRecebidoPeloEntregador" to acerto,
+                    "financeiroEntrega" to mapOf(
+                        "precisaConferencia" to true,
+                        "formaPagamento" to input.paymentMethod,
+                        "tipoTransacao" to input.transactionType,
+                        "maquininhaId" to input.machineId,
+                        "taxaMaquininha" to preview.machineFee,
+                        "valorLiquido" to preview.liquidAmount,
+                        "valorARepassar" to preview.amountToRepay,
+                        "valorAReceber" to preview.amountToReceive
+                    ),
+                    "acerto" to acerto,
+                    "atualizadoEm" to now,
+                    "updatedAt" to now
+                )
+                val acertoId = "${profile.id}_${rideId}".replace(Regex("[^A-Za-z0-9_-]"), "_").take(180)
+                doc.reference.set(missionPayload, SetOptions.merge())
+                    .addOnSuccessListener {
+                        db.collection("acertosEntregadores").document(acertoId).set(acerto, SetOptions.merge())
+                        db.collection(profile.collectionName).document(profile.id).set(
+                            mapOf(
+                                "acerto" to acerto,
+                                "financeiro.precisaConferencia" to true,
+                                "financeiro.valorARepassar" to preview.amountToRepay,
+                                "financeiro.valorAReceber" to preview.amountToReceive,
+                                "financeiro.recebidoPeloEntregador" to if (preview.amountToRepay > 0.0) preview.grossAmount else 0.0,
+                                "financeiro.taxasMaquininha" to preview.machineFee,
+                                "financeiro.taxaMotoboy" to preview.driverFee,
+                                "financeiroAtualizadoEm" to now,
+                                "updatedAt" to now
+                            ),
+                            SetOptions.merge()
+                        )
+                        onDone()
+                    }
+                    .addOnFailureListener { onError(it.message ?: "Falha ao salvar acerto da corrida.") }
+            }, onNotFound = { onError("Corrida não encontrada para registrar acerto.") })
+        }
+        if (input.machineId.isNotBlank()) {
+            db.collection("maquininhas").document(input.machineId).get()
+                .addOnSuccessListener { doc -> persist(if (doc.exists()) doc.toPaymentMachine("maquininhas") else null) }
+                .addOnFailureListener { persist(null) }
+        } else {
+            persist(null)
+        }
+    }
+
     fun acceptRide(context: Context, rideId: String, onDone: () -> Unit = {}, onError: (String) -> Unit = {}) {
         val profile = currentSession(context)
         if (profile == null) {
@@ -1022,7 +1265,7 @@ object DriverRepository {
                 "intervaloSeg" to intervaloSeg,
                 "atualizadoEm" to now
             ),
-            "localizacaoOrigem" to "android_native_v6_10_0"
+            "localizacaoOrigem" to "android_native_v6_10_1"
         )
 
         db.collection(profile.collectionName).document(profile.id)
@@ -1109,7 +1352,7 @@ object DriverRepository {
                 "updatedAt" to now,
                 "criadoEm" to now,
                 "createdAt" to now,
-                "origem" to "android_native_v6_10_0",
+                "origem" to "android_native_v6_10_1",
                 "eventosStatus" to FieldValue.arrayUnion(
                     mapOf(
                         "status" to action,
@@ -1123,6 +1366,37 @@ object DriverRepository {
         )
     }
 
+
+
+    private fun DocumentSnapshot.toPaymentMachine(collectionName: String): PaymentMachine {
+        val status = anyString("status", "situacao", "situação").upperOrTrim()
+        val activeByStatus = status.isBlank() || status in setOf("ATIVA", "ATIVO", "ACTIVE", "ONLINE", "HABILITADA")
+        return PaymentMachine(
+            id = id,
+            collectionName = collectionName,
+            name = anyString("nome", "name", "titulo", "title", "apelido").ifBlank { "Maquininha" },
+            owner = anyString("dono", "owner", "responsavel", "responsável").ifBlank { "loja" },
+            active = anyBoolean("ativa", "ativo", "active", "enabled", "habilitada") ?: activeByStatus,
+            debitFeePercent = anyDouble("taxaDebito", "taxaDébito", "taxas.debito", "fees.debit") ?: 0.0,
+            creditFeePercent = anyDouble("taxaCredito", "taxaCrédito", "taxas.credito", "taxas.crédito", "fees.credit") ?: 0.0,
+            installmentFeePercent = anyDouble("taxaParcelado", "taxas.parcelado", "fees.installment") ?: 0.0,
+            ticketFeePercent = anyDouble("taxaTicket", "taxas.ticket", "fees.ticket") ?: 0.0,
+            anticipationFeePercent = anyDouble("taxaAntecipacao", "taxaAntecipação", "taxas.antecipacao", "taxas.antecipação") ?: 0.0,
+            order = anyDouble("order", "ordem", "position", "posicao", "posição")?.toInt() ?: 999
+        )
+    }
+
+    private fun DocumentSnapshot.toAppRuntimeConfig(id: String): AppRuntimeConfig {
+        return AppRuntimeConfig(
+            id = id,
+            maintenanceActive = anyBoolean("manutencaoAtiva", "manutençãoAtiva", "maintenanceActive", "ativa") ?: false,
+            maintenanceMessage = anyString("mensagemManutencao", "mensagemManutenção", "maintenanceMessage", "mensagem"),
+            maintenanceReturn = anyString("previsaoRetorno", "previsãoRetorno", "maintenanceReturn", "retorno"),
+            minimumVersion = anyString("versaoMinima", "versãoMinima", "minimumVersion"),
+            forceUpdate = anyBoolean("forcarAtualizacao", "forçarAtualização", "forceUpdate") ?: false,
+            globalAlert = anyString("alertaGlobal", "globalAlert", "avisoGlobal")
+        )
+    }
 
     private fun DocumentSnapshot.toWalletStats(): DriverStats {
         val available = anyDouble(
@@ -1549,6 +1823,59 @@ data class DriverRegistrationRequest(
     val plate: String = "",
     val pixKey: String = "",
     val bankName: String = ""
+)
+
+
+data class PaymentMachine(
+    val id: String,
+    val collectionName: String = "maquininhas",
+    val name: String = "Maquininha",
+    val owner: String = "loja",
+    val active: Boolean = true,
+    val debitFeePercent: Double = 0.0,
+    val creditFeePercent: Double = 0.0,
+    val installmentFeePercent: Double = 0.0,
+    val ticketFeePercent: Double = 0.0,
+    val anticipationFeePercent: Double = 0.0,
+    val order: Int = 999
+)
+
+data class PaymentSettlementInput(
+    val rideId: String,
+    val orderTotal: Double,
+    val driverFee: Double,
+    val paymentMethod: String,
+    val transactionType: String = "",
+    val machineId: String = "",
+    val machineName: String = "",
+    val manualFeePercent: Double = 0.0,
+    val receivedByDriver: Boolean = false,
+    val receivedBy: String = "",
+    val note: String = ""
+)
+
+data class PaymentSettlementPreview(
+    val grossAmount: Double = 0.0,
+    val driverFee: Double = 0.0,
+    val machineFee: Double = 0.0,
+    val machineFeePercent: Double = 0.0,
+    val liquidAmount: Double = 0.0,
+    val amountToRepay: Double = 0.0,
+    val amountToReceive: Double = 0.0,
+    val cashAmount: Double = 0.0,
+    val cardAmount: Double = 0.0,
+    val pixAmount: Double = 0.0,
+    val status: String = "AGUARDANDO_CONFERENCIA"
+)
+
+data class AppRuntimeConfig(
+    val id: String = "entregador",
+    val maintenanceActive: Boolean = false,
+    val maintenanceMessage: String = "",
+    val maintenanceReturn: String = "",
+    val minimumVersion: String = "",
+    val forceUpdate: Boolean = false,
+    val globalAlert: String = ""
 )
 
 data class DriverPayout(

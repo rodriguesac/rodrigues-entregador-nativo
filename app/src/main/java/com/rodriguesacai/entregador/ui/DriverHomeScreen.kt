@@ -130,6 +130,8 @@ import com.rodriguesacai.entregador.data.DriverRegistrationRequest
 import com.rodriguesacai.entregador.data.DriverRepository
 import com.rodriguesacai.entregador.data.DriverRide
 import com.rodriguesacai.entregador.data.DriverStats
+import com.rodriguesacai.entregador.data.PaymentMachine
+import com.rodriguesacai.entregador.data.AppRuntimeConfig
 import com.rodriguesacai.entregador.service.AppAlertPlayer
 import com.rodriguesacai.entregador.service.NotificationHelper
 import kotlinx.coroutines.delay
@@ -197,6 +199,8 @@ fun DriverHomeScreen(
     var stats by remember { mutableStateOf(DriverStats()) }
     var appBanners by remember { mutableStateOf<List<AppCarouselBanner>>(emptyList()) }
     var appNotices by remember { mutableStateOf<List<AppNotice>>(emptyList()) }
+    var paymentMachines by remember { mutableStateOf<List<PaymentMachine>>(emptyList()) }
+    var appRuntimeConfig by remember { mutableStateOf(AppRuntimeConfig()) }
     var error by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
     var hideValues by remember { mutableStateOf(AppSettings.getHideValues(context)) }
@@ -221,6 +225,15 @@ fun DriverHomeScreen(
         val noticeListener = if (profile != null) {
             DriverRepository.listenAppNotifications(context, onNotices = { appNotices = it }, onError = { /* avisos vazios nao bloqueiam operacao */ })
         } else null
+        val profileListener = if (profile != null) {
+            DriverRepository.listenDriverProfile(context, onProfile = { liveProfile -> profile = liveProfile }, onError = { /* perfil vazio nao bloqueia app */ })
+        } else null
+        val machinesListener = if (profile != null) {
+            DriverRepository.listenMachineOptions(onMachines = { paymentMachines = it }, onError = { /* maquininhas vazias nao bloqueiam app */ })
+        } else null
+        val appConfigListener = if (profile != null) {
+            DriverRepository.listenAppRuntimeConfig(onConfig = { appRuntimeConfig = it }, onError = { /* config vazia nao bloqueia app */ })
+        } else null
         onDispose {
             pendingListener?.remove()
             activeListener?.remove()
@@ -228,6 +241,9 @@ fun DriverHomeScreen(
             statsListener?.remove()
             carouselListener?.remove()
             noticeListener?.remove()
+            profileListener?.remove()
+            machinesListener?.remove()
+            appConfigListener?.remove()
         }
     }
 

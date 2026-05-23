@@ -13,8 +13,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 36
-        versionCode = 700
-        versionName = "6.10.0-correcoes-a-b"
+        versionCode = 701
+        versionName = "6.10.1-sync-gestor-app"
     }
 
     buildFeatures { compose = true }

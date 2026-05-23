@@ -1,4 +1,4 @@
-﻿name: Build APK Nativo Entregador
+name: Build APK Nativo Entregador
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          yes | sdkmanager --licenses > /dev/null
+          yes | sdkmanager --licenses >/dev/null
           set -e
 
       - name: Conferir estrutura do projeto
@@ -47,11 +47,8 @@ jobs:
           echo "Raiz do projeto:"
           ls -la
           echo ""
-          echo "Workflows:"
-          ls -la .github/workflows || true
-          echo ""
           echo "Versao do app:"
-          grep -R "versionCode\^|versionName" app/build.gradle.kts || true
+          grep -R "versionCode\|versionName" app/build.gradle.kts || true
           test -f settings.gradle.kts || test -f settings.gradle
           test -f app/build.gradle.kts || test -f app/build.gradle
 
@@ -73,6 +70,6 @@ jobs:
       - name: Enviar APK como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rodrigues-Entregador-V6-10-0-correcoes-a-b-debug-apk
+          name: Rodrigues-Entregador-V6-10-1-sync-gestor-app-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
