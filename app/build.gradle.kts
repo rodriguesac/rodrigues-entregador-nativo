@@ -13,8 +13,8 @@ android {
         applicationId = "com.rodriguesacai.entregador"
         minSdk = 26
         targetSdk = 36
-        versionCode = 730
-        versionName = "6.13.0-rota-inteligente"
+        versionCode = 731
+        versionName = "6.13.1-rota-inteligente-fix"
     }
 
     buildFeatures { compose = true }

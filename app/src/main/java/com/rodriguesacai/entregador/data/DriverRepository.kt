@@ -1181,7 +1181,7 @@ object DriverRepository {
                             "pedidoAtualId" to if (collectionName == "pedidos") rideId else null,
                             "rotaAtualId" to if (collectionName == "rotas_entrega") rideId else null,
                             "rastreamentoAtivo" to true,
-                            "codigoPedidoAtual" to ride.orderCode.ifBlank { rideId.takeLast(4).uppercase(Locale.ROOT) },
+                            "codigoPedidoAtual" to ((ride?.orderCode ?: "").ifBlank { rideId.takeLast(4).uppercase(Locale.ROOT) }),
                             "atualizadoEm" to Timestamp.now(),
                             "updatedAt" to Timestamp.now()
                         ),
@@ -1406,7 +1406,7 @@ object DriverRepository {
                             "pedidoAtualId" to if (collectionName == "pedidos") rideId else null,
                             "rotaAtualId" to if (collectionName == "rotas_entrega") rideId else null,
                             "rastreamentoAtivo" to (status != "finished"),
-                            "codigoPedidoAtual" to ride.orderCode.ifBlank { rideId.takeLast(4).uppercase(Locale.ROOT) },
+                            "codigoPedidoAtual" to ((ride?.orderCode ?: "").ifBlank { rideId.takeLast(4).uppercase(Locale.ROOT) }),
                             "atualizadoEm" to Timestamp.now(),
                             "updatedAt" to Timestamp.now()
                         ),
