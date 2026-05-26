@@ -1,3 +1,0 @@
-Rodrigues Entregador V6.13.1 - Rota Inteligente Fix
-Base: V6.12.0 segura
-Correção: null safety em DriverRepository.kt linha 1409, mantendo rota inteligente.
