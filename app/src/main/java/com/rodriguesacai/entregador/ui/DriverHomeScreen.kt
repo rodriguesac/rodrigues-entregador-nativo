@@ -158,22 +158,22 @@ private object WalletType {
     val cardValue = 22.sp
     val heroValue = 36.sp
 }
-private val BgTop = Color(0xFFF7FAF6)
-private val BgBottom = Color(0xFFEFF4EF)
+private val BgTop = Color.White
+private val BgBottom = Color.White
 private val Panel = Color.White
 private val PanelSoft = Color.White
-private val Purple = Color(0xFF008A2E)
+private val Purple = Color(0xFF00A63E)
 private val Purple2 = Color(0xFFFF7A00)
-private val Lime = Color(0xFF008A2E)
-private val LimeDark = Color(0xFF006B2A)
-private val Ink = Color(0xFF111318)
-private val Muted = Color(0xFF5D6670)
-private val Muted2 = Color(0xFF96A0AA)
+private val Lime = Color(0xFF008F2F)
+private val LimeDark = Color(0xFF00752B)
+private val Ink = Color(0xFF101216)
+private val Muted = Color(0xFF5F6872)
+private val Muted2 = Color(0xFF9AA3AD)
 private val Danger = Color(0xFFE7192B)
 private val Warning = Color(0xFFFF9900)
 private val Blue = Color(0xFF1677FF)
-private val BorderSoft = Color(0xFFE1E8DF)
-private val FillSoft = Color(0xFFF8FBF6)
+private val BorderSoft = Color(0xFFE8EDF2)
+private val FillSoft = Color(0xFFF7FAFC)
 
 private enum class AvailabilityKind { Disponivel, Indisponivel, Restricao, EmEntrega }
 
@@ -401,7 +401,7 @@ fun DriverHomeScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Brush.verticalGradient(listOf(topBg, screenBg)))
+                .background(Color.White)
         ) {
             when (tab) {
                 AppTab.Inicio -> HomeContent(
@@ -547,10 +547,10 @@ private fun WelcomePermissionsScreen(
             RodriguesLogoBlock(compact = false)
             Spacer(Modifier.height(18.dp))
             PremiumScreenCard {
-                Text("Bem-vindo ao app do entregador", color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text("Permissões do app", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Antes do login, vamos preparar alertas, localização e operação em segundo plano. Quando o Android permitir, basta tocar em Permitir.",
+                    "Ative uma vez para receber corridas com segurança, alerta urgente e localização correta.",
                     color = Muted,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -559,25 +559,33 @@ private fun WelcomePermissionsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(18.dp))
-                PermissionSetupRow("Notificações", "Receber novas corridas e avisos.", permissionStatus.notifications) {
+                PermissionSetupRow("Notificações", "Alertas de novas corridas.", permissionStatus.notifications) {
                     onRequestNotificationPermission()
                     permissionStatus = PermissionStatusReader.read(context)
                 }
-                PermissionSetupRow("Localização", "Encontrar corridas e atualizar rota.", permissionStatus.location) {
+                PermissionSetupRow("Localização", "Mapa e rota em tempo real.", permissionStatus.location) {
                     onRequestLocationPermission()
                     permissionStatus = PermissionStatusReader.read(context)
                 }
-                PermissionSetupRow("Alerta urgente", "Tela cheia quando chegar oferta.", permissionStatus.fullScreenIntent) {
+                PermissionSetupRow("Alerta urgente", "Oferta aparece mesmo fora do app.", permissionStatus.fullScreenIntent) {
                     onOpenFullScreenSettings()
                 }
-                PermissionSetupRow("Bateria", "Evitar que o Android feche o app.", permissionStatus.batteryUnrestricted) {
+                PermissionSetupRow("Bateria", "Mantém o serviço ativo.", permissionStatus.batteryUnrestricted) {
                     onOpenBatterySettings()
                 }
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Continuar para login") { onContinue() }
+                PrimaryButton("Configurar permissões") {
+                    if (!permissionStatus.notifications) onRequestNotificationPermission()
+                    if (!permissionStatus.location) onRequestLocationPermission()
+                    permissionStatus = PermissionStatusReader.read(context)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(20.dp)) {
+                    Text("Continuar", color = Lime, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onContinue, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Text("Configurar depois", color = Muted, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+                    Text("Entrar sem concluir", color = Muted, fontWeight = FontWeight.Bold, fontFamily = AppFont)
                 }
             }
         }
@@ -591,8 +599,8 @@ private fun PermissionSetupRow(title: String, message: String, ok: Boolean, onCl
             .fillMaxWidth()
             .padding(vertical = 7.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(if (ok) Color(0xFFEAF7EE) else Color(0xFFF7F8F5))
-            .border(1.dp, if (ok) Lime.copy(alpha = .22f) else BorderSoft, RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .border(1.dp, if (ok) Lime.copy(alpha = .20f) else BorderSoft, RoundedCornerShape(18.dp))
             .clickable { if (!ok) onClick() }
             .padding(13.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -780,7 +788,7 @@ private fun PremiumScreenCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         modifier = Modifier.fillMaxWidth().border(1.dp, BorderSoft, RoundedCornerShape(28.dp))
     ) {
         Column(Modifier.padding(22.dp), content = content)
@@ -3797,7 +3805,7 @@ private fun MoreContent(
 
         GlassCard(padding = 18) {
             Text("Rodrigues Entregador", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("Versão 6.5.0 • reconstrução visual fiel", color = Muted2, fontSize = 12.sp)
+            Text("Versão 6.14.0 • design system premium", color = Muted2, fontSize = 12.sp)
         }
     }
 }
@@ -3821,14 +3829,14 @@ private fun PermissionRow(label: String, ok: Boolean, onFix: () -> Unit) {
 }
 
 @Composable
-private fun GlassCard(padding: Int = 16, borderColor: Color = Color(0xFFE4E8EF), content: @Composable ColumnScope.() -> Unit) {
+private fun GlassCard(padding: Int = 16, borderColor: Color = BorderSoft, content: @Composable ColumnScope.() -> Unit) {
     Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelSoft),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(26.dp))
     ) {
         Column(Modifier.padding(padding.dp), content = content)
     }
@@ -3871,7 +3879,8 @@ private fun PrimaryButton(text: String, enabled: Boolean = true, loading: Boolea
         enabled = enabled,
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(56.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(22.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Color.White)
     ) {
         if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)

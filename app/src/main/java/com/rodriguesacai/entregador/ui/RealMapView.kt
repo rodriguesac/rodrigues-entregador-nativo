@@ -5,6 +5,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.location.LocationManager
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
@@ -46,7 +50,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -59,10 +63,24 @@ import kotlin.math.abs
 private const val TOMTOM_API_KEY = "tmsKTjnNOPUHNDHOYh2m12VrmwejmK8t"
 private const val ROUTE_REFRESH_MS = 30_000L
 
-private val MapPanel = Color(0xFF0E1117)
-private val MapGreen = Color(0xFF82C91E)
-private val MapPurple = Color(0xFF7C4DFF)
-private val MapBlue = Color(0xFF1684FF)
+private val MapPanel = Color.White
+private val MapGreen = Color(0xFF008F2F)
+private val MapOrange = Color(0xFFFF7A00)
+private val MapBlue = Color(0xFF2B8DFF)
+
+private val PremiumMapTiles = XYTileSource(
+    "CartoVoyager",
+    1,
+    20,
+    256,
+    ".png",
+    arrayOf(
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/",
+        "https://d.basemaps.cartocdn.com/rastertiles/voyager/"
+    )
+)
 
 /**
  * Modo da rota exibida no mapa.
@@ -129,7 +147,7 @@ fun RealDeliveryMap(
             .height(245.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(MapPanel)
-            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(26.dp))
+            .border(1.dp, Color(0xFFE7ECF2), RoundedCornerShape(26.dp))
     ) {
         CleanOsmMap(
             state = state,
@@ -169,7 +187,7 @@ private fun FullscreenRouteMap(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(Color.White)
         ) {
             CleanOsmMap(
                 state = state,
@@ -184,12 +202,12 @@ private fun FullscreenRouteMap(
                     .padding(14.dp)
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(Color(0xCC0A0C11))
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
+                    .background(Color.White.copy(alpha = 0.96f))
+                    .border(1.dp, Color(0xFFE7ECF2), CircleShape)
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
-                Text("‹", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
+                Text("‹", color = Color(0xFF101216), fontSize = 36.sp, fontWeight = FontWeight.Black)
             }
 
         }
@@ -209,7 +227,7 @@ private fun CleanOsmMap(
             Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
             Configuration.getInstance().userAgentValue = ctx.packageName
             MapView(ctx).apply {
-                setTileSource(TileSourceFactory.MAPNIK)
+                setTileSource(PremiumMapTiles)
                 setMultiTouchControls(!tapOpensFullscreen)
                 minZoomLevel = 4.0
                 maxZoomLevel = 20.0
@@ -242,14 +260,14 @@ private fun FullscreenMapButton(modifier: Modifier = Modifier, onClick: () -> Un
         modifier = modifier
             .size(46.dp)
             .clip(CircleShape)
-            .background(Color(0xE60A0C11))
-            .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .background(Color.White.copy(alpha = .94f))
+            .border(1.dp, Color(0xFFE7ECF2), CircleShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.size(22.dp)) {
             val stroke = Stroke(width = 3f, cap = StrokeCap.Round)
-            val c = Color.White
+            val c = Color(0xFF101216)
             val s = size.width
             val p = 1.5f
             val l = s * 0.34f
@@ -286,10 +304,17 @@ private fun applyRouteToMap(map: MapView, state: RouteMapState) {
     }
 
     if (state.route.size >= 2) {
+        val halo = Polyline().apply {
+            setPoints(state.route)
+            outlinePaint.color = android.graphics.Color.WHITE
+            outlinePaint.strokeWidth = 15f
+            outlinePaint.isAntiAlias = true
+        }
+        map.overlays.add(halo)
         val line = Polyline().apply {
             setPoints(state.route)
-            outlinePaint.color = android.graphics.Color.rgb(124, 77, 255)
-            outlinePaint.strokeWidth = 10f
+            outlinePaint.color = android.graphics.Color.rgb(0, 143, 47)
+            outlinePaint.strokeWidth = 9f
             outlinePaint.isAntiAlias = true
         }
         map.overlays.add(line)
@@ -299,6 +324,7 @@ private fun applyRouteToMap(map: MapView, state: RouteMapState) {
         map.overlays.add(Marker(map).apply {
             position = it
             title = "Loja / coleta"
+            icon = premiumMarkerIcon(map.context, android.graphics.Color.rgb(0, 143, 47), "L")
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
         })
     }
@@ -307,6 +333,7 @@ private fun applyRouteToMap(map: MapView, state: RouteMapState) {
         map.overlays.add(Marker(map).apply {
             position = it
             title = "Cliente / entrega"
+            icon = premiumMarkerIcon(map.context, android.graphics.Color.rgb(255, 122, 0), "E")
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
         })
     }
@@ -315,11 +342,66 @@ private fun applyRouteToMap(map: MapView, state: RouteMapState) {
         map.overlays.add(Marker(map).apply {
             position = it
             title = "Sua localização"
+            icon = driverMarkerIcon(map.context)
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         })
     }
 
     map.invalidate()
+}
+
+private fun premiumMarkerIcon(context: Context, color: Int, label: String): BitmapDrawable {
+    val density = context.resources.displayMetrics.density
+    val width = (44 * density).toInt()
+    val height = (58 * density).toInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val cx = width / 2f
+    val cy = 20 * density
+    paint.color = android.graphics.Color.argb(55, 0, 0, 0)
+    canvas.drawCircle(cx, cy + 4 * density, 18 * density, paint)
+    paint.color = color
+    canvas.drawCircle(cx, cy, 18 * density, paint)
+    paint.color = android.graphics.Color.WHITE
+    canvas.drawCircle(cx, cy, 11 * density, paint)
+    paint.color = color
+    paint.textAlign = Paint.Align.CENTER
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    paint.textSize = 12 * density
+    canvas.drawText(label, cx, cy + 4 * density, paint)
+    val path = android.graphics.Path().apply {
+        moveTo(cx - 9 * density, cy + 15 * density)
+        lineTo(cx + 9 * density, cy + 15 * density)
+        lineTo(cx, height - 5 * density)
+        close()
+    }
+    paint.color = color
+    canvas.drawPath(path, paint)
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun driverMarkerIcon(context: Context): BitmapDrawable {
+    val density = context.resources.displayMetrics.density
+    val size = (42 * density).toInt()
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val cx = size / 2f
+    paint.color = android.graphics.Color.argb(45, 0, 143, 47)
+    canvas.drawCircle(cx, cx, 20 * density, paint)
+    paint.color = android.graphics.Color.WHITE
+    canvas.drawCircle(cx, cx, 13 * density, paint)
+    paint.color = android.graphics.Color.rgb(0, 143, 47)
+    val path = android.graphics.Path().apply {
+        moveTo(cx, 9 * density)
+        lineTo(cx + 10 * density, cx + 10 * density)
+        lineTo(cx, cx + 5 * density)
+        lineTo(cx - 10 * density, cx + 10 * density)
+        close()
+    }
+    canvas.drawPath(path, paint)
+    return BitmapDrawable(context.resources, bitmap)
 }
 
 private suspend fun buildRouteMapState(

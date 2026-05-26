@@ -47,12 +47,12 @@ fun RodriguesNativeTheme(
         primary = Color(0xFF2E7D00),
         onPrimary = Color.White,
         secondary = Color(0xFF008A2E),
-        background = Color(0xFFF6F8F3),
+        background = Color.White,
         surface = Color.White,
-        onSurface = Color(0xFF171021),
-        onBackground = Color(0xFF171021),
-        outline = Color(0xFFDDE3D3)
+        onSurface = Color(0xFF111318),
+        onBackground = Color(0xFF111318),
+        outline = Color(0xFFE6EAF0)
     )
 
-    MaterialTheme(colorScheme = if (darkTheme) dark else light, typography = typography, content = content)
+    MaterialTheme(colorScheme = light, typography = typography, content = content)
 }
