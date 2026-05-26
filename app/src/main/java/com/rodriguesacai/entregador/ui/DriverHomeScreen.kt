@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.provider.Settings
+import android.widget.Toast
 import java.util.Locale
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -55,6 +56,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -1697,11 +1699,14 @@ private fun IncomingRideCard(
 @Composable
 private fun ActiveRideCard(ride: DriverRide, routeAddition: DriverRide? = null, onOpenNavigator: (pickup: String, dropoff: String) -> Unit, onUpdateRide: (DriverRide, String) -> Unit, paymentMachines: List<PaymentMachine> = emptyList()) {
     val context = LocalContext.current
+    var problemDialogOpen by remember(ride.id) { mutableStateOf(false) }
+    val inOccurrence = ride.status == "occurrence"
     val title = when (ride.status) {
         "accepted", "ACEITA", "A_CAMINHO_LOJA" -> "Indo para coleta"
         "pickup", "COLETANDO", "NA_COLETA" -> "Na coleta"
         "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "Em entrega"
         "arrived_client", "ENTREGADOR_NO_LOCAL", "CHEGOU_CLIENTE" -> "No cliente"
+        "occurrence" -> "Ocorrência enviada"
         else -> "Rota atual"
     }
     val nextLabel = when (ride.status) {
@@ -1709,6 +1714,7 @@ private fun ActiveRideCard(ride: DriverRide, routeAddition: DriverRide? = null, 
         "pickup", "COLETANDO", "NA_COLETA" -> if (ride.pickupReleaseAllowed) "Iniciar entrega" else "Aguardando saída"
         "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "Cheguei no cliente"
         "arrived_client", "ENTREGADOR_NO_LOCAL", "CHEGOU_CLIENTE" -> "Finalizar entrega"
+        "occurrence" -> "Aguardando gestor"
         else -> "Atualizar etapa"
     }
     val nextStatus = when (ride.status) {
@@ -1716,6 +1722,7 @@ private fun ActiveRideCard(ride: DriverRide, routeAddition: DriverRide? = null, 
         "pickup", "COLETANDO", "NA_COLETA" -> "delivering"
         "delivering", "EM_ROTA", "SAIU_ENTREGA" -> "arrived_client"
         "arrived_client", "ENTREGADOR_NO_LOCAL", "CHEGOU_CLIENTE" -> "finished"
+        "occurrence" -> "occurrence"
         else -> "pickup"
     }
     val isArrivedClient = ride.status in listOf("arrived_client", "ENTREGADOR_NO_LOCAL", "CHEGOU_CLIENTE")
@@ -1741,17 +1748,33 @@ private fun ActiveRideCard(ride: DriverRide, routeAddition: DriverRide? = null, 
             routeCode = routeCode,
             title = title,
             subtitle = routeSubtitle,
-            status = if (waitingPickupRelease) "Aguardando saída" else if (ride.pickupReleaseAllowed && !isDelivering) "Liberada" else ride.status.statusLabel(),
-            statusOk = !waitingPickupRelease
+            status = if (inOccurrence) "Aguardando gestor" else if (waitingPickupRelease) "Aguardando saída" else if (ride.pickupReleaseAllowed && !isDelivering) "Liberada" else ride.status.statusLabel(),
+            statusOk = !waitingPickupRelease && !inOccurrence
         )
 
         if (routeAddition != null) {
             CompactNotice(Icons.Filled.ReceiptLong, "Pedido adicionado", "Rota atualizada pelo gestor", Blue)
         }
 
+        if (inOccurrence) {
+            CompactNotice(Icons.Filled.ErrorOutline, "Ocorrência enviada", "Aguardando resposta do gestor", Warning)
+        }
+
         if (waitingPickupRelease) {
             PickupReleaseCard(routeCode = routeCode, ready = routeSubtitle)
         }
+
+        RealDeliveryMap(
+            title = "Rota atual",
+            subtitle = listOf(ride.distance, ride.duration).filter { it.isNotBlank() }.joinToString(" • ").ifBlank { title },
+            pickupAddress = ride.pickup,
+            dropoffAddress = if (isDelivering) ride.dropoff else ride.neighborhood,
+            pickupLat = ride.pickupLat,
+            pickupLng = ride.pickupLng,
+            dropoffLat = ride.dropoffLat,
+            dropoffLng = ride.dropoffLng,
+            mode = if (isDelivering) DeliveryMapMode.DRIVER_TO_DROPOFF else DeliveryMapMode.DRIVER_TO_PICKUP
+        )
 
         RouteSummaryCompact(ride = ride, deliveryText = deliveryText, isDelivering = isDelivering)
         PaymentOperationPanel(ride, compact = true)
@@ -1769,17 +1792,92 @@ private fun ActiveRideCard(ride: DriverRide, routeAddition: DriverRide? = null, 
             })
         } else {
             RideActionArea(
-                waitingPickupRelease = waitingPickupRelease,
-                canNavigate = navDestination.isNotBlank() && !waitingPickupRelease,
+                waitingPickupRelease = waitingPickupRelease || inOccurrence,
+                canNavigate = navDestination.isNotBlank() && !waitingPickupRelease && !inOccurrence,
                 nextLabel = nextLabel,
                 onNavigate = { onOpenNavigator(ride.pickup, navDestination) },
-                onProblem = { DriverRepository.reportRideOccurrence(context, ride.id, reason = "Solicitação de suporte", details = "Entregador informou problema pela tela da corrida.") },
-                onNext = { onUpdateRide(ride, nextStatus) }
+                onProblem = { problemDialogOpen = true },
+                onNext = { if (!inOccurrence) onUpdateRide(ride, nextStatus) },
+                blockedLabel = if (inOccurrence) "Aguardando gestor" else "Aguardando saída",
+                problemLabel = if (inOccurrence) "Ocorrência enviada" else "Problema na rota",
+                problemEnabled = !inOccurrence
             )
         }
 
         RideFinancialPanel(ride, compact = true)
     }
+
+    if (problemDialogOpen) {
+        ProblemReportDialog(
+            onDismiss = { problemDialogOpen = false },
+            onConfirm = { reason, details ->
+                problemDialogOpen = false
+                DriverRepository.reportRideOccurrence(
+                    context = context,
+                    rideId = ride.id,
+                    reason = reason,
+                    details = details.ifBlank { "Entregador informou problema pela tela da corrida." },
+                    onDone = { Toast.makeText(context, "Ocorrência enviada ao gestor.", Toast.LENGTH_SHORT).show() },
+                    onError = { message -> Toast.makeText(context, message.ifBlank { "Falha ao enviar ocorrência." }, Toast.LENGTH_LONG).show() }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun ProblemReportDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var selected by remember { mutableStateOf("Loja demorando") }
+    var details by remember { mutableStateOf("") }
+    val reasons = listOf(
+        "Loja demorando",
+        "Pedido não encontrado",
+        "Problema no veículo",
+        "Endereço divergente",
+        "Cliente não atende",
+        "Pagamento com problema",
+        "Local inseguro",
+        "Outro"
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Problema na rota", color = Ink, fontWeight = FontWeight.Black, fontFamily = AppFont) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Escolha o motivo. O gestor será avisado e a rota fica pendente de solução.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                reasons.forEach { reason ->
+                    OutlinedButton(
+                        onClick = { selected = reason },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(if (selected == reason) "✓ $reason" else reason, color = if (selected == reason) LimeDark else Ink, fontWeight = FontWeight.Bold, fontFamily = AppFont, fontSize = 12.sp)
+                    }
+                }
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it.take(160) },
+                    label = { Text("Detalhe opcional") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selected, details) }) {
+                Text("Enviar", color = Warning, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Voltar", color = Muted, fontWeight = FontWeight.Bold, fontFamily = AppFont)
+            }
+        },
+        containerColor = Color.White
+    )
 }
 
 @Composable
@@ -1866,7 +1964,10 @@ private fun RideActionArea(
     nextLabel: String,
     onNavigate: () -> Unit,
     onProblem: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    blockedLabel: String = "Aguardando saída",
+    problemLabel: String = "Problema na rota",
+    problemEnabled: Boolean = true
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (canNavigate) {
@@ -1882,13 +1983,13 @@ private fun RideActionArea(
             }
         } else {
             Button(onClick = onNext, enabled = !waitingPickupRelease, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = if (waitingPickupRelease) Color(0xFFE0E4E6) else Lime, contentColor = if (waitingPickupRelease) Muted2 else Color.White)) {
-                Text(if (waitingPickupRelease) "Aguardando saída" else nextLabel, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text(if (waitingPickupRelease) blockedLabel else nextLabel, fontWeight = FontWeight.Black, fontFamily = AppFont)
             }
         }
-        OutlinedButton(onClick = onProblem, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(18.dp)) {
-            Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = Warning, modifier = Modifier.size(18.dp))
+        OutlinedButton(onClick = onProblem, enabled = problemEnabled, modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(18.dp)) {
+            Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = if (problemEnabled) Warning else Muted2, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Informar problema", color = Warning, fontWeight = FontWeight.Black, fontFamily = AppFont)
+            Text(problemLabel, color = if (problemEnabled) Warning else Muted2, fontWeight = FontWeight.Black, fontFamily = AppFont, fontSize = 13.sp)
         }
     }
 }
@@ -1939,23 +2040,45 @@ private fun PaymentOperationPanel(ride: DriverRide, compact: Boolean) {
         else -> "A conferir"
     }
 
-    GlassCard(padding = if (compact) 12 else 14, borderColor = accent.copy(alpha = .22f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (isCard) Icons.Filled.CreditCard else Icons.Filled.Payments, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Pagamento", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PaymentChip(mainChip, accent, Modifier.weight(1f))
-                PaymentChip(amountChip, accent, Modifier.weight(1.25f))
+    if (compact) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(accent.copy(alpha = .07f))
+                .border(1.dp, accent.copy(alpha = .16f), RoundedCornerShape(22.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(if (isCard) Icons.Filled.CreditCard else Icons.Filled.Payments, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Pagamento", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                Text("$mainChip • $amountChip", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (isCash && ride.changeForNumber > 0.0) {
-                PaymentChip("Troco ${DriverRepository.formatCurrency(ride.changeForNumber)}", Warning, Modifier.fillMaxWidth())
+                StatusPill("Troco", false)
             }
-            if (!compact && method.isBlank() && status.isBlank()) {
-                Text("Confirme na coleta antes de sair.", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+        }
+    } else {
+        GlassCard(padding = 14, borderColor = accent.copy(alpha = .22f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (isCard) Icons.Filled.CreditCard else Icons.Filled.Payments, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Pagamento", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PaymentChip(mainChip, accent, Modifier.weight(1f))
+                    PaymentChip(amountChip, accent, Modifier.weight(1.25f))
+                }
+                if (isCash && ride.changeForNumber > 0.0) {
+                    PaymentChip("Troco ${DriverRepository.formatCurrency(ride.changeForNumber)}", Warning, Modifier.fillMaxWidth())
+                }
+                if (method.isBlank() && status.isBlank()) {
+                    Text("Confirme na coleta antes de sair.", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
             }
         }
     }
@@ -2155,7 +2278,7 @@ private fun RouteOrdersPanel(ride: DriverRide) {
             CompactOrderFallback(ride, shouldShowFallback)
         } else {
             orders.forEachIndexed { index, order ->
-                RouteOrderRow(order)
+                RouteOrderRow(order, fallbackPaymentSummary = ride.paymentSummaryForUi())
                 if (index != orders.lastIndex) Divider(color = BorderSoft)
             }
         }
@@ -2184,19 +2307,30 @@ private fun CompactOrderFallback(ride: DriverRide, single: Boolean) {
 }
 
 @Composable
-private fun RouteOrderRow(order: com.rodriguesacai.entregador.data.RouteOrder) {
+private fun RouteOrderRow(order: com.rodriguesacai.entregador.data.RouteOrder, fallbackPaymentSummary: String = "") {
     Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (order.ready) Icons.Filled.CheckCircle else Icons.Filled.Schedule, contentDescription = null, tint = if (order.ready) Lime else Warning, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text("#${order.code.ifBlank { order.id.takeLast(4).uppercase(Locale.ROOT) }} ${order.customerName.ifBlank { "Cliente" }}", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(order.paymentSummary.ifBlank { "Pagamento a conferir" }, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val paymentLine = order.paymentSummary.takeUnless { it.isBlank() || it.contains("não informado", ignoreCase = true) } ?: fallbackPaymentSummary.ifBlank { "Pagamento a conferir" }
+            Text(paymentLine, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         StatusPill(if (order.ready) "Pronto" else order.status.ifBlank { "Preparo" }, order.ready)
     }
 }
 
 private fun moneyOrDash(value: Double): String = if (value > 0.0) DriverRepository.formatCurrency(value) else "—"
+
+private fun DriverRide.paymentSummaryForUi(): String {
+    return when (paymentKind()) {
+        "MAQUININHA" -> if (amountToCollectNumber > 0.0) "Maquininha • ${DriverRepository.formatCurrency(amountToCollectNumber)}" else "Maquininha"
+        "DINHEIRO" -> if (changeForNumber > 0.0) "Dinheiro • Troco ${DriverRepository.formatCurrency(changeForNumber)}" else "Dinheiro"
+        "ONLINE" -> "Pago online"
+        "PIX" -> if (amountToCollectNumber > 0.0) "Pix • ${DriverRepository.formatCurrency(amountToCollectNumber)}" else "Pix"
+        else -> "Pagamento a conferir"
+    }
+}
 
 
 @Composable
@@ -3207,6 +3341,7 @@ private fun MoreHubScreen(
     onOpen: (String) -> Unit,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         ScreenTopTitle("Mais", "Conta, recebimento e ajustes")
         Card(
@@ -3268,6 +3403,32 @@ private fun MoreHubScreen(
                     Text(if (permissionStatus.ready) "Alertas, localização e bateria estão configurados." else "Configure notificações, localização e bateria sem restrição.", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
                 }
                 Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Muted2, modifier = Modifier.clickable { onOpen("permissions") })
+            }
+        }
+
+        GlassCard(padding = 14, borderColor = Warning.copy(alpha = .20f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Warning, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Destravar operação", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = AppFont)
+                    Text("Use se a corrida sumiu, foi cancelada ou o app ficou preso.", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = AppFont)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = {
+                    DriverRepository.forceClearActiveMission(
+                        context = context,
+                        reason = "DESTRAVAR_MANUAL_MAIS",
+                        onDone = { Toast.makeText(context, "App destravado. Volte para Início.", Toast.LENGTH_SHORT).show() },
+                        onError = { Toast.makeText(context, it.ifBlank { "Falha ao destravar." }, Toast.LENGTH_LONG).show() }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Destravar agora", color = Warning, fontWeight = FontWeight.Black, fontFamily = AppFont)
             }
         }
 
@@ -3568,7 +3729,7 @@ private fun SettingsReferenceScreen(themeMode: String, onThemeChanged: (String) 
                 ModeButton("Escuro", themeMode == AppSettings.THEME_DARK, Modifier.weight(1f)) { onThemeChanged(AppSettings.THEME_DARK) }
             }
         }
-        StatusInfoCard("Versão do app", "6.13.0 rota inteligente: oferta blindada, preferências operacionais, rota agrupada e retirada liberada pelo gestor.", Blue)
+        StatusInfoCard("Versão do app", "6.16.0 piloto seguro: destravamento, ocorrência real, cancelamento sincronizado e rota clara.", Blue)
     }
 }
 
@@ -3727,7 +3888,7 @@ private fun SettingsCenterContent(
             SettingButton("Problemas com corrida", "Relatar ocorrência")
         }
         SettingsSection("Sobre") {
-            SettingButton("Versão do app", "6.15.0 design system real")
+            SettingButton("Versão do app", "6.16.0 piloto seguro")
             SettingButton("Termos e privacidade", "Documentos do app")
         }
     }
@@ -3812,7 +3973,7 @@ private fun MoreContent(
 
         GlassCard(padding = 18) {
             Text("Rodrigues Entregador", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("Versão 6.15.0 • design system real", color = Muted2, fontSize = 12.sp)
+            Text("Versão 6.16.0 • piloto seguro", color = Muted2, fontSize = 12.sp)
         }
     }
 }
@@ -4200,6 +4361,7 @@ private fun String.statusLabel(): String = when {
     equals("pickup", true) || equals("COLETANDO", true) || equals("EM_COLETA", true) -> "Na coleta"
     equals("delivering", true) || equals("EM_ROTA", true) || equals("SAIU_ENTREGA", true) || equals("A_CAMINHO_CLIENTE", true) -> "Em rota"
     equals("arrived_client", true) || equals("ENTREGADOR_NO_LOCAL", true) || equals("CHEGOU_CLIENTE", true) -> "No cliente"
+    equals("occurrence", true) || contains("OCORR", true) || contains("PROBLEMA", true) -> "Ocorrência"
     equals("finished", true) -> "Finalizada"
     contains("REJEIT", true) -> "Recusada"
     contains("EXPIR", true) -> "Expirada"

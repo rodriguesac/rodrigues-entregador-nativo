@@ -17,7 +17,7 @@ import java.util.Locale
 import java.time.Instant
 
 object DriverRepository {
-    private const val APP_VERSION = "6.13.0"
+    private const val APP_VERSION = "6.16.0"
     private const val PREFS = "driver_session"
     private const val KEY_ID = "driver_id"
     private const val KEY_NAME = "driver_name"
@@ -669,8 +669,16 @@ object DriverRepository {
         fun emit() {
             val active = state.values.flatten()
                 .distinctBy { "${it.collectionName}:${it.id}" }
-                .firstOrNull { it.status in listOf("accepted", "pickup", "delivering") }
-            if (active != null) rememberActiveRide(context, active) else forgetActiveRide(context)
+                .firstOrNull { it.status in listOf("accepted", "pickup", "delivering", "arrived_client", "occurrence") }
+            if (active != null) {
+                rememberActiveRide(context, active)
+            } else {
+                if (hasLocalActiveMission(context)) {
+                    releaseStaleMission(context, profile, "MISSAO_ENCERRADA_OU_CANCELADA")
+                } else {
+                    forgetActiveRide(context)
+                }
+            }
             onRide(active)
         }
 
@@ -1307,28 +1315,47 @@ object DriverRepository {
                 "createdAt" to now,
                 "atualizadoEm" to now
             )
-            db.collection("ocorrencias_entregadores").add(occurrence)
+            val occurrenceId = db.collection("ocorrencias_entregadores").document().id
+            val batch = db.batch()
+            batch.set(db.collection("ocorrencias_entregadores").document(occurrenceId), occurrence)
+            batch.set(db.collection("ocorrenciasEntregadores").document(occurrenceId), occurrence)
+            batch.set(db.collection("ocorrenciasOperacao").document(occurrenceId), occurrence + mapOf("visivelGestor" to true, "prioridade" to "ALTA"))
+            batch.set(
+                doc.reference,
+                mapOf(
+                    "status" to "OCORRENCIA",
+                    "statusRota" to "OCORRENCIA",
+                    "statusEntrega" to "OCORRENCIA",
+                    "statusEntregador" to "OCORRENCIA",
+                    "statusMotoboy" to "OCORRENCIA",
+                    "ocorrenciaAtiva" to true,
+                    "statusOcorrencia" to "ABERTA",
+                    "ultimaOcorrenciaId" to occurrenceId,
+                    "ultimaOcorrenciaMotivo" to reason,
+                    "ultimaOcorrenciaEm" to now,
+                    "pendenteGestor" to true,
+                    "acaoNecessariaGestor" to "RESOLVER_OCORRENCIA",
+                    "bloqueadoPorOcorrencia" to true,
+                    "atualizadoEm" to now,
+                    "updatedAt" to now
+                ),
+                SetOptions.merge()
+            )
+            batch.set(
+                db.collection(profile.collectionName).document(profile.id),
+                mapOf(
+                    "statusOperacional" to "OCORRENCIA",
+                    "ocorrenciaAtiva" to true,
+                    "ultimaOcorrenciaId" to occurrenceId,
+                    "ultimaOcorrenciaEm" to now,
+                    "emCorrida" to true,
+                    "atualizadoEm" to now,
+                    "updatedAt" to now
+                ),
+                SetOptions.merge()
+            )
+            batch.commit()
                 .addOnSuccessListener {
-                    doc.reference.set(
-                        mapOf(
-                            "ocorrenciaAtiva" to true,
-                            "statusOcorrencia" to "ABERTA",
-                            "ultimaOcorrenciaMotivo" to reason,
-                            "ultimaOcorrenciaEm" to now,
-                            "atualizadoEm" to now,
-                            "updatedAt" to now
-                        ),
-                        SetOptions.merge()
-                    )
-                    db.collection(profile.collectionName).document(profile.id).set(
-                        mapOf(
-                            "statusOperacional" to "OCORRENCIA",
-                            "ultimaOcorrenciaEm" to now,
-                            "atualizadoEm" to now,
-                            "updatedAt" to now
-                        ),
-                        SetOptions.merge()
-                    )
                     addHistory(profile, rideId, "OCORRENCIA: $reason", ride?.valueNumber ?: 0.0, collectionName, ride)
                     onDone()
                 }
@@ -1501,6 +1528,7 @@ object DriverRepository {
     fun clearDriverTracking(context: Context) {
         val profile = currentSession(context) ?: return
         val now = Timestamp.now()
+        forgetActiveRide(context)
         db.collection(profile.collectionName).document(profile.id).set(
             mapOf(
                 "rastreamentoAtivo" to false,
@@ -1509,6 +1537,10 @@ object DriverRepository {
                 "missaoAtualId" to null,
                 "pedidoAtualId" to null,
                 "rotaAtualId" to null,
+                "rotaAtualStatus" to null,
+                "pedidoAtualStatus" to null,
+                "emCorrida" to false,
+                "ocorrenciaAtiva" to false,
                 "rastreamento" to mapOf(
                     "ativo" to false,
                     "finalizadoEm" to now
@@ -1518,6 +1550,71 @@ object DriverRepository {
             ),
             SetOptions.merge()
         )
+    }
+
+    fun forceClearActiveMission(context: Context, reason: String = "DESTRAVAMENTO_APP", onDone: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        val profile = currentSession(context)
+        if (profile == null) {
+            onError("Faça login para destravar o app.")
+            return
+        }
+        releaseStaleMission(context, profile, reason, onDone, onError)
+    }
+
+    private fun releaseStaleMission(
+        context: Context,
+        profile: DriverProfile,
+        reason: String,
+        onDone: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val missionId = prefs.getString(KEY_ACTIVE_MISSION, "").orEmpty()
+        val routeId = prefs.getString(KEY_ACTIVE_ROUTE, "").orEmpty()
+        val orderId = prefs.getString(KEY_ACTIVE_ORDER, "").orEmpty()
+        val now = Timestamp.now()
+        forgetActiveRide(context)
+        val payload = mapOf(
+            "status" to "Livre",
+            "online" to true,
+            "statusOperacional" to "LIVRE",
+            "emCorrida" to false,
+            "corridaAtualId" to null,
+            "missaoAtualId" to null,
+            "pedidoAtualId" to null,
+            "rotaAtualId" to null,
+            "rotaAtualStatus" to null,
+            "pedidoAtualStatus" to null,
+            "rastreamentoAtivo" to false,
+            "ocorrenciaAtiva" to false,
+            "destravadoAutomaticamenteEm" to now,
+            "ultimoDestravamentoMotivo" to reason,
+            "ultimaMissaoEncerradaId" to missionId.ifBlank { routeId.ifBlank { orderId } },
+            "atualizadoEm" to now,
+            "updatedAt" to now
+        )
+        db.collection(profile.collectionName).document(profile.id).set(payload, SetOptions.merge())
+            .addOnSuccessListener {
+                if (missionId.isNotBlank() || routeId.isNotBlank() || orderId.isNotBlank()) {
+                    db.collection("appEventosOperacao").add(
+                        mapOf(
+                            "tipo" to "DESTRAVAMENTO_ENTREGADOR",
+                            "origem" to "APP_ENTREGADOR",
+                            "motivo" to reason,
+                            "entregadorId" to profile.id,
+                            "entregadorUid" to profile.id,
+                            "entregadorNome" to profile.name,
+                            "missaoId" to missionId,
+                            "rotaId" to routeId,
+                            "pedidoId" to orderId,
+                            "criadoEm" to now,
+                            "createdAt" to now
+                        )
+                    )
+                }
+                onDone()
+            }
+            .addOnFailureListener { onError(it.message ?: "Falha ao destravar entregador.") }
     }
 
     private fun findMissionDocument(rideId: String, onFound: (DocumentSnapshot) -> Unit, onNotFound: () -> Unit) {
@@ -2228,7 +2325,8 @@ data class RouteOrder(
     val ready: Boolean = false,
     val requiresMachine: Boolean = false,
     val requiresChange: Boolean = false,
-    val changeForNumber: Double = 0.0
+    val changeForNumber: Double = 0.0,
+    val terminal: Boolean = false
 )
 
 data class DriverOperationalPreferences(
@@ -2367,8 +2465,12 @@ data class DriverRide(
 }
 
 private val TERMINAL_MISSION_STATUSES = setOf(
-    "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED", "FINALIZADO", "FINALIZADA",
-    "CONCLUIDA", "CONCLUÍDA", "ENTREGUE", "DELIVERED", "FINISHED", "ARQUIVADO", "ARQUIVADA"
+    "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED", "CANCELAMENTO",
+    "CANCELADO_PELO_GESTOR", "CANCELADA_PELO_GESTOR", "CANCELADO_GESTOR", "CANCELADA_GESTOR",
+    "CANCELADO_LOJA", "CANCELADA_LOJA", "CANCELADO_CLIENTE", "CANCELADA_CLIENTE",
+    "PEDIDO_CANCELADO", "ROTA_CANCELADA", "DESPACHO_CANCELADO",
+    "FINALIZADO", "FINALIZADA", "CONCLUIDA", "CONCLUÍDA", "CONCLUÍDO", "CONCLUIDO",
+    "ENTREGUE", "DELIVERED", "FINISHED", "ARQUIVADO", "ARQUIVADA", "ENCERRADO", "ENCERRADA"
 )
 private val PICKUP_RELEASED_STATUSES = setOf("LIBERADA_PARA_SAIDA", "SAIDA_LIBERADA", "RETIRADA_LIBERADA", "COM_ENTREGADOR", "A_CAMINHO_CLIENTE", "EM_ROTA", "SAIU_ENTREGA")
 private val ROUTE_LOCKED_STATUSES = setOf("COM_ENTREGADOR", "A_CAMINHO_CLIENTE", "EM_ROTA", "SAIU_ENTREGA", "ENTREGADOR_NO_LOCAL", "ENTREGUE", "FINALIZADA")
@@ -2444,6 +2546,7 @@ private val PICKUP_STATUSES = setOf("COLETANDO", "ROTA_PRONTA_PARA_RETIRADA", "A
 private val ARRIVED_CLIENT_STATUSES = setOf("ENTREGADOR_NO_LOCAL", "CHEGOU_CLIENTE", "CHEGOU_ENTREGA", "NO_CLIENTE", "ARRIVED_CLIENT", "ARRIVED_AT_CLIENT")
 private val DELIVERING_STATUSES = setOf("COM_ENTREGADOR", "EM_ROTA", "SAIU_ENTREGA", "A_CAMINHO_CLIENTE", "DELIVERING", "EM_ENTREGA")
 private val FINAL_HISTORY_STATUSES = setOf("CONCLUIDA", "ENTREGUE", "FINALIZADA", "FINISHED", "DELIVERED", "finished", "delivered")
+private val OCCURRENCE_STATUSES = setOf("OCORRENCIA", "OCORRÊNCIA", "PROBLEMA", "SUPORTE", "AGUARDANDO_GESTOR", "PENDENTE_GESTOR")
 private val APPROVED_STATUSES = setOf("APROVADO", "APPROVED", "LIBERADO", "ATIVO", "ACTIVE")
 private val BLOCKED_STATUSES = setOf("REPROVADO", "BLOQUEADO", "BLOCKED", "SUSPENSO", "SUSPENDED", "CANCELADO")
 
@@ -2455,6 +2558,7 @@ private fun normalizeUiStatus(raw: String, collectionName: String = ""): String 
         status in ACCEPTED_STATUSES -> "accepted"
         status in PICKUP_STATUSES -> "pickup"
         status in ARRIVED_CLIENT_STATUSES -> "arrived_client"
+        status in OCCURRENCE_STATUSES -> "occurrence"
         status in DELIVERING_STATUSES -> "delivering"
         status in FINAL_HISTORY_STATUSES -> "finished"
         else -> raw.ifBlank { "" }
@@ -2465,12 +2569,33 @@ private fun DocumentSnapshot.hasTerminalMissionStatus(): Boolean {
     val statuses = listOf(
         anyString("status"),
         anyString("statusPedido"),
+        anyString("statusPedidoCore"),
+        anyString("statusCore"),
         anyString("statusEntrega"),
         anyString("statusRota"),
         anyString("statusOperacao"),
-        anyString("statusOperação")
+        anyString("statusOperação"),
+        anyString("situacao"),
+        anyString("situação"),
+        anyString("estado"),
+        anyString("state"),
+        anyString("pedido.status"),
+        anyString("pedido.statusPedido"),
+        anyString("pedido.statusPedidoCore"),
+        anyString("entrega.status"),
+        anyString("delivery.status"),
+        anyString("operacao.status"),
+        anyString("operação.status")
     ).map { it.upperOrTrim() }
-    return statuses.any { it in TERMINAL_MISSION_STATUSES } || anyBoolean("cancelado", "cancelada", "pedidoCancelado", "arquivado") == true
+    val hasCancelTimestamp = anyTimestamp(
+        "canceladoEm", "canceladaEm", "cancelamentoEm", "dataCancelamento",
+        "pedidoCanceladoEm", "rotaCanceladaEm", "cancelledAt", "canceledAt"
+    ) != null
+    val cancelFlag = anyBoolean(
+        "cancelado", "cancelada", "pedidoCancelado", "rotaCancelada", "despachoCancelado",
+        "canceladoPeloGestor", "canceladaPeloGestor", "cancelled", "canceled", "arquivado"
+    ) == true
+    return statuses.any { it in TERMINAL_MISSION_STATUSES } || cancelFlag || hasCancelTimestamp
 }
 
 private fun DocumentSnapshot.storeAcceptedForDelivery(): Boolean {
@@ -2620,19 +2745,23 @@ private fun DocumentSnapshot.toRouteOrders(): List<RouteOrder> {
     }
     return rows.mapNotNull { item ->
         val map = item as? Map<*, *> ?: return@mapNotNull null
-        val status = map.firstString("status", "statusPedido", "cozinhaStatus", "situacao", "situação")
+        val status = map.firstString("status", "statusPedido", "statusPedidoCore", "cozinhaStatus", "situacao", "situação", "estado", "state")
         val payment = map.firstString("pagamento", "formaPagamento", "paymentMethod", "pagamento.forma")
         val changeFor = map.firstDouble("trocoPara", "changeFor", "valorTrocoPara") ?: 0.0
+        val orderTerminal = status.upperOrTrim() in TERMINAL_MISSION_STATUSES ||
+            map.firstBoolean("cancelado", "cancelada", "pedidoCancelado", "canceladoPeloGestor", "cancelled", "canceled", "finalizado", "entregue", "arquivado") == true ||
+            map.firstString("canceladoEm", "canceladaEm", "cancelamentoEm", "pedidoCanceladoEm", "cancelledAt", "canceledAt").isNotBlank()
         RouteOrder(
             id = map.firstString("id", "pedidoId", "orderId", "uid"),
             code = map.firstString("codigoPedido", "numeroPedido", "orderCode", "codigo"),
             customerName = map.firstString("cliente", "clienteNome", "customerName", "nome"),
             status = status.ifBlank { "Aguardando" },
             paymentSummary = payment.ifBlank { "Pagamento não informado" },
-            ready = status.upperOrTrim() in setOf("PRONTO", "PRONTA", "READY", "LIBERADO", "LIBERADA"),
+            ready = !orderTerminal && status.upperOrTrim() in setOf("PRONTO", "PRONTA", "READY", "LIBERADO", "LIBERADA"),
             requiresMachine = map.firstBoolean("precisaMaquininha", "requiresMachine", "cartaoPresencial") == true || payment.upperOrTrim().contains("CART"),
             requiresChange = changeFor > 0.0,
-            changeForNumber = changeFor
+            changeForNumber = changeFor,
+            terminal = orderTerminal
         )
     }
 }
@@ -2643,7 +2772,7 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
 
     val rawStatus = if (collectionName == "pedidos") {
         val main = anyString("status").upperOrTrim()
-        if (main in ACCEPTED_STATUSES || main in PICKUP_STATUSES || main in ARRIVED_CLIENT_STATUSES || main in DELIVERING_STATUSES || main in FINAL_HISTORY_STATUSES) {
+        if (main in ACCEPTED_STATUSES || main in PICKUP_STATUSES || main in ARRIVED_CLIENT_STATUSES || main in OCCURRENCE_STATUSES || main in DELIVERING_STATUSES || main in FINAL_HISTORY_STATUSES) {
             anyString("status")
         } else {
             anyString(
@@ -2696,13 +2825,15 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
     val dropoffLat = anyCoordinate("latEntrega", "entregaLat", "clienteLat", "dropoffLat", "dropoffLatitude", "destinationLat", "destinoLat") ?: nestedCoordinate("endereco", "lat", "latitude")
     val dropoffLng = anyCoordinate("lngEntrega", "entregaLng", "clienteLng", "dropoffLng", "dropoffLongitude", "destinationLng", "destinoLng", "lonEntrega") ?: nestedCoordinate("endereco", "lng", "lon", "longitude")
     val routeOrders = toRouteOrders()
+    if (collectionName == "rotas_entrega" && routeOrders.isNotEmpty() && routeOrders.all { it.terminal }) return null
     val routeId = anyString("rotaId", "routeId", "rotaAtualId", "missaoAtualId").ifBlank { if (collectionName == "rotas_entrega") id else "" }
     val offerType = anyString("tipoOferta", "offerType", "tipo", "tipoDespacho", "acaoOferta")
     val expires = anyTimestamp("ofertaExpiraEm", "expiraEm", "expiresAt", "validadeOferta", "offerExpiresAt", "deadlineAt")?.toDate()?.time ?: 0L
     val created = anyTimestamp("ofertaCriadaEm", "createdAt", "criadoEm", "created_at")?.toDate()?.time ?: 0L
     val activeFlag = anyBoolean("ativa", "ativo", "active", "ofertaAtiva", "isActive")
-    val readyCount = anyDouble("pedidosProntos", "readyCount", "quantidadeProntos", "qtdProntos")?.toInt() ?: routeOrders.count { it.ready }
-    val orderCount = (anyDouble("quantidadePedidos", "qtdPedidos", "orderCount", "stops", "paradas")?.toInt() ?: routeOrders.size.takeIf { it > 0 } ?: 1).coerceAtLeast(1)
+    val activeRouteOrders = routeOrders.filterNot { it.terminal }
+    val readyCount = anyDouble("pedidosProntos", "readyCount", "quantidadeProntos", "qtdProntos")?.toInt() ?: activeRouteOrders.count { it.ready }
+    val orderCount = (anyDouble("quantidadePedidos", "qtdPedidos", "orderCount", "stops", "paradas")?.toInt() ?: activeRouteOrders.size.takeIf { it > 0 } ?: 1).coerceAtLeast(1)
     val releaseStatus = anyString("statusSaida", "saida.status", "retirada.status", "liberacaoSaida.status", "pickupReleaseStatus")
     val pickupReleaseAllowed = anyBoolean("saidaLiberada", "liberadaParaSaida", "liberadoParaSaida", "retiradaLiberada", "pickupReleaseAllowed") == true || releaseStatus.upperOrTrim() in PICKUP_RELEASED_STATUSES || rawStatus.upperOrTrim() in PICKUP_RELEASED_STATUSES
     val routeLocked = anyBoolean("rotaTravada", "locked", "routeLocked", "bloquearNovosPedidos") == true || rawStatus.upperOrTrim() in ROUTE_LOCKED_STATUSES
@@ -2754,7 +2885,7 @@ private fun DocumentSnapshot.toDriverRide(collectionName: String): DriverRide? {
         pickupReleaseStatus = releaseStatus,
         pickupReleaseAllowed = pickupReleaseAllowed,
         routeLocked = routeLocked,
-        routeOrders = routeOrders
+        routeOrders = activeRouteOrders.ifEmpty { routeOrders.filterNot { it.terminal } }
     )
 }
 

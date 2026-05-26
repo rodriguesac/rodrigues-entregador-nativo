@@ -144,7 +144,7 @@ fun RealDeliveryMap(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(245.dp)
+            .height(210.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(MapPanel)
             .border(1.dp, Color(0xFFE7ECF2), RoundedCornerShape(26.dp))
