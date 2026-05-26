@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 
 @Composable
 fun RodriguesNativeTheme(
-    darkTheme: Boolean = true,
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val montserratLike = RodriguesFonts.Montserrat

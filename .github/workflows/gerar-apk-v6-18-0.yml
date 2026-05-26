@@ -37,7 +37,7 @@ jobs:
         with:
           gradle-version: 8.14.3
 
-      - name: Conferir projeto V6.18.0
+      - name: Conferir versao enviada
         shell: bash
         run: |
           echo "Arquivos na raiz:"
